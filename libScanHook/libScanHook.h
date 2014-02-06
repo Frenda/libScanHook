@@ -140,10 +140,11 @@ namespace libScanHook
 		bool PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize);
 		void FixRelocTable(DWORD hModule, DWORD BaseAddress);
 		bool ParsePe(DWORD ImageBase, PPE_INFO PeInfo);
-		DWORD GetExportByName(HMODULE hModule, char *ProcName);
-		DWORD FileNameRedirection(HMODULE hModule, char *RedirectionName);
+		DWORD GetExportByOrdinal(DWORD ModuleBase, WORD Ordinal);
+		DWORD GetExportByName(DWORD ModuleBase, char *ProcName);
+		DWORD FileNameRedirection(DWORD ModuleBase, char *RedirectionName);
 		bool ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size);
-		DWORD GetRealApiAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
+		DWORD MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
 		DWORD GetModulePathByAddress(HANDLE hProcess, DWORD Address, WCHAR *ModulePath);
 	};
 }

@@ -85,7 +85,7 @@ namespace libScanHook
 					ApiAddress = Eat[NameOrd[i]] + ModuleInfo.DllBase;
 					OriApiAddress = OriEat[NameOrd[i]] + ModuleInfo.DllBase;
 					if (OriApiAddress >= (DWORD)Pe.ExportTable && (OriApiAddress < ((DWORD)Pe.ExportTable + Pe.ExportSize)))
-						OriApiAddress = FileNameRedirection((HMODULE)(ModuleInfo.DllBase), (char *)OriApiAddress);
+						OriApiAddress = FileNameRedirection(ModuleInfo.DllBase, (char *)OriApiAddress);
 					if (ApiAddress != OriApiAddress)
 					{
 						Info.HookType = EatHook;
@@ -112,6 +112,7 @@ namespace libScanHook
 		bool ret = 0, IsApiSet;
 		char *DllName, *ApiName;
 		WCHAR RealDllName[64];
+		WORD Ordinal;
 		DWORD ApiAddress, OriApiAddress;
 		PIMAGE_THUNK_DATA FirstThunk, OriThunk;
 		PIMAGE_IMPORT_BY_NAME ByName;
@@ -127,16 +128,18 @@ namespace libScanHook
 					FirstThunk = (PIMAGE_THUNK_DATA)(Pe.ImportTable->FirstThunk + (DWORD)ModuleInfo.ScanBuffer);
 					while (FirstThunk->u1.Function)
 					{
+						ApiAddress = FirstThunk->u1.Function;
 						if (OriThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG32)
 						{
-							OriThunk++;
-							FirstThunk++;
-							continue;
+							Ordinal = OriThunk->u1.Ordinal & 0x0000FFFF;
+							OriApiAddress = MyGetProcAddress(DllName, (char *)Ordinal, &IsApiSet, RealDllName);
 						}
-						ByName = (PIMAGE_IMPORT_BY_NAME)(OriThunk->u1.AddressOfData + (DWORD)ModuleInfo.ScanBuffer);
-						ApiName = ByName->Name;
-						ApiAddress = FirstThunk->u1.Function;
-						OriApiAddress = GetRealApiAddress(DllName, ApiName, &IsApiSet, RealDllName);
+						else
+						{
+							ByName = (PIMAGE_IMPORT_BY_NAME)(OriThunk->u1.AddressOfData + (DWORD)ModuleInfo.ScanBuffer);
+							ApiName = ByName->Name;
+							OriApiAddress = MyGetProcAddress(DllName, ApiName, &IsApiSet, RealDllName);
+						}
 						if (ApiAddress != OriApiAddress)
 						{
 							Info.HookType = IatHook;
@@ -349,7 +352,24 @@ namespace libScanHook
 		return ret;
 	}
 
-	DWORD ScanHook::GetExportByName(HMODULE hModule, char *ProcName)
+	DWORD ScanHook::GetExportByOrdinal(DWORD ModuleBase, WORD Ordinal)
+	{
+		DWORD ApiAddress = 0;
+		DWORD *Eat;
+		PE_INFO PeInfo;
+		ParsePe(ModuleBase, &PeInfo);
+		if (PeInfo.ExportSize)
+		{
+			Eat = (DWORD *)(ModuleBase + PeInfo.ExportTable->AddressOfFunctions);
+			ApiAddress = ((Eat[Ordinal - PeInfo.ExportTable->Base] != 0) ? (ModuleBase + Eat[Ordinal - PeInfo.ExportTable->Base]) : 0);
+			if ((ApiAddress >= (DWORD)PeInfo.ExportTable) &&
+				(ApiAddress < ((DWORD)PeInfo.ExportTable + PeInfo.ExportSize)))
+				ApiAddress = FileNameRedirection(ModuleBase, (char *)ApiAddress);
+		}
+		return ApiAddress;
+	}
+
+	DWORD ScanHook::GetExportByName(DWORD ModuleBase, char *ProcName)
 	{
 		int cmp;
 		char *ApiName;
@@ -357,17 +377,17 @@ namespace libScanHook
 		WORD Ordinal, *NameOrd;
 		DWORD *Ent, *Eat, HigthIndex, LowIndex = 0, MidIndex;
 		PE_INFO PeInfo;
-		ParsePe((DWORD)hModule, &PeInfo);
+		ParsePe(ModuleBase, &PeInfo);
 		if (PeInfo.ExportSize)
 		{
-			Eat = (DWORD *)((DWORD)hModule + PeInfo.ExportTable->AddressOfFunctions);
-			Ent = (DWORD *)((DWORD)hModule + PeInfo.ExportTable->AddressOfNames);
-			NameOrd = (WORD *)((DWORD)hModule + PeInfo.ExportTable->AddressOfNameOrdinals);
+			Eat = (DWORD *)(ModuleBase + PeInfo.ExportTable->AddressOfFunctions);
+			Ent = (DWORD *)(ModuleBase + PeInfo.ExportTable->AddressOfNames);
+			NameOrd = (WORD *)(ModuleBase + PeInfo.ExportTable->AddressOfNameOrdinals);
 			HigthIndex = PeInfo.ExportTable->NumberOfNames ;
 			while (LowIndex <= HigthIndex)
 			{
 				MidIndex = (LowIndex + HigthIndex) / 2;
-				ApiName = (char *)((DWORD)hModule + Ent[MidIndex]);
+				ApiName = (char *)(ModuleBase + Ent[MidIndex]);
 				__try
 				{
 					cmp = strcmp(ProcName, ApiName);
@@ -392,18 +412,18 @@ namespace libScanHook
 					break;
 				}
 			}
-			ApiAddress = ((DWORD)hModule + Eat[Ordinal]);
+			ApiAddress = (ModuleBase + Eat[Ordinal]);
 			if (ApiAddress >= (DWORD)PeInfo.ExportTable &&
 				(ApiAddress < ((DWORD)PeInfo.ExportTable + PeInfo.ExportSize)))
 			{
-				ApiAddress = FileNameRedirection(hModule, (char *)ApiAddress);
+				ApiAddress = FileNameRedirection(ModuleBase, (char *)ApiAddress);
 				IsRedirction = 1;
 			}
 		}
 		return ApiAddress;
 	}
 
-	DWORD ScanHook::FileNameRedirection(HMODULE hModule, char *RedirectionName)
+	DWORD ScanHook::FileNameRedirection(DWORD ModuleBase, char *RedirectionName)
 	{
 		char *ptr, *ProcName;
 		char Buffer[64];
@@ -425,12 +445,12 @@ namespace libScanHook
 			else
 			{
 			get_api_address:
-				hModule = LoadLibraryW(DllName);
-				if (hModule)
+				ModuleBase = (DWORD)LoadLibraryW(DllName);
+				if (ModuleBase)
 				{
 					ProcName = (char *)(ptr + 1);
-					ApiAddress = GetExportByName(hModule, ProcName);
-					FreeLibrary(hModule);
+					ApiAddress = GetExportByName(ModuleBase, ProcName);
+					FreeLibrary((HMODULE)ModuleBase);
 				}
 			}
 		}
@@ -467,8 +487,21 @@ namespace libScanHook
 						  if (!_wcsicmp((WCHAR *)(ApiSetName + 4), LibName))
 						  {
 							  SetMapHost_v2 = (PAPI_SET_VALUE_ARRAY_V2)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].DataOffset);
-							  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[SetMapHost_v2->Count - 1].ValueOffset);
-							  HostNameSize = SetMapHost_v2->Entry[SetMapHost_v2->Count - 1].ValueLength;
+							  if (SetMapHost_v2->Count == 1)
+							  {
+								  HostNameSize = SetMapHost_v2->Entry[0].ValueLength;
+								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[0].ValueOffset);
+							  }
+							  else
+							  {
+								  HostNameSize = SetMapHost_v2->Entry[0].ValueLength;
+								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[0].ValueOffset);
+								  if (!_wcsnicmp(Moduleiter->BaseName, NameBuffer, HostNameSize / sizeof(WCHAR)) || IsFromRedirction)
+								  {
+									  HostNameSize = SetMapHost_v2->Entry[1].ValueLength;
+									  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[1].ValueOffset);
+								  }								  
+							  }
 							  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
 							  ret = 1;
 							  break;
@@ -490,7 +523,6 @@ namespace libScanHook
 							  {
 								  HostNameSize = SetMapHost_v4->Entry[0].ValueLength;
 								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHost_v4->Entry[0].ValueOffset);
-								  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
 							  }
 							  else
 							  {
@@ -500,9 +532,9 @@ namespace libScanHook
 								  {
 									  HostNameSize = SetMapHost_v4->Entry[1].ValueLength;
 									  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHost_v4->Entry[1].ValueOffset);
-								  }
-								  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
+								  }								  
 							  }
+							  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
 							  ret = 1;
 							  break;
 						  }
@@ -515,20 +547,21 @@ namespace libScanHook
 		return ret;
 	}
 
-	DWORD ScanHook::GetRealApiAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName)
+	DWORD ScanHook::MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName)
 	{
 		bool IsExist = 0;
 		DWORD ApiAddress = 0;
 		WCHAR NameBuffer[64], HostName[64];
 		vector<MODULE_INFO>::iterator iter;
 		*IsApiSet = 0;
-		if (MultiByteToWideChar(CP_ACP, 0, DllName, strlen(DllName) + 1, NameBuffer, 64))
+		MultiByteToWideChar(CP_ACP, 0, DllName, strlen(DllName) + 1, NameBuffer, 64);
+		if (HIWORD((DWORD)ApiName))
 		{
 			for (iter = ModuleInfo.begin(); iter != ModuleInfo.end(); iter++)
 			{
 				if (!_wcsicmp(iter->BaseName, NameBuffer))
 				{
-					ApiAddress = GetExportByName((HMODULE)iter->OrigBuffer, ApiName);
+					ApiAddress = GetExportByName((DWORD)iter->OrigBuffer, ApiName);
 					if (!IsRedirction)
 						ApiAddress = ApiAddress - (DWORD)iter->OrigBuffer + iter->DllBase;
 					IsRedirction = 0;
@@ -536,7 +569,7 @@ namespace libScanHook
 					break;
 				}
 			}
-			if (!IsExist && !_wcsnicmp(NameBuffer, L"api-", 4) && (MajorVersion >= 6 && MinorVersion >=1))
+			if (!IsExist && !_wcsnicmp(NameBuffer, L"api-", 4) && (MajorVersion >= 6 && MinorVersion >= 1))
 			{
 				if (ResolveApiSet(NameBuffer, HostName, 64))
 				{
@@ -546,13 +579,25 @@ namespace libScanHook
 					{
 						if (!_wcsicmp(HostName, iter->BaseName))
 						{
-							ApiAddress = GetExportByName((HMODULE)iter->OrigBuffer, ApiName);
+							ApiAddress = GetExportByName((DWORD)iter->OrigBuffer, ApiName);
 							if (!IsRedirction)
 								ApiAddress = ApiAddress - (DWORD)iter->OrigBuffer + iter->DllBase;
 							IsRedirction = 0;
 							break;
 						}
-					}					
+					}
+				}
+			}
+		}
+		else
+		{
+			for (iter = ModuleInfo.begin(); iter != ModuleInfo.end(); iter++)
+			{
+				if (!_wcsicmp(iter->BaseName, NameBuffer))
+				{
+					ApiAddress = GetExportByOrdinal((DWORD)iter->OrigBuffer, (WORD)ApiName);
+					ApiAddress = ApiAddress - (DWORD)iter->OrigBuffer + iter->DllBase;
+					break;
 				}
 			}
 		}
