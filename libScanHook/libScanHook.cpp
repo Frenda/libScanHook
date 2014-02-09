@@ -220,17 +220,17 @@ namespace libScanHook
 		bool ret = 0;
 		DWORD Peb;
 		MODULE_INFO Info;
-		PROCESS_BASIC_INFORMATION BaseInfo;
+		NT_PROCESS_BASIC_INFORMATION BaseInfo;
 		PNT_PEB_LDR_DATA LdrData;
-		LDR_DATA_TABLE_ENTRY Buffer;
-		PLDR_DATA_TABLE_ENTRY LdrTable, EndLdrTable;
-		if (!NtQueryInformationProcess(hProcess, ProcessBasicInformation, &BaseInfo, sizeof(PROCESS_BASIC_INFORMATION), 0))
+		NT_LDR_DATA_TABLE_ENTRY Buffer;
+		PNT_LDR_DATA_TABLE_ENTRY LdrTable, EndLdrTable;
+		if (!NtQueryInformationProcess(hProcess, ProcessBasicInformation, &BaseInfo, sizeof(NT_PROCESS_BASIC_INFORMATION), 0))
 		{
 			Peb = BaseInfo.PebBaseAddress;
 			if (ReadProcessMemory(hProcess, (void *)(Peb + 0xc), &LdrData, 4, 0))
 			{
 				ReadProcessMemory(hProcess, &(LdrData->InLoadOrderModuleList), &LdrTable, 4, 0);
-				ReadProcessMemory(hProcess, LdrTable, &Buffer, sizeof(LDR_DATA_TABLE_ENTRY), 0);
+				ReadProcessMemory(hProcess, LdrTable, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
 				EndLdrTable = LdrTable;
 				do
 				{
@@ -245,8 +245,8 @@ namespace libScanHook
 					Info.OrigBuffer = new BYTE[Buffer.SizeOfImage];
 					PeLoader(Info.FullName, Info.OrigBuffer, Buffer.SizeOfImage);
 					ModuleInfo.push_back(Info);
-					ReadProcessMemory(hProcess, Buffer.InLoadOrderLinks.Flink, &Buffer, sizeof(LDR_DATA_TABLE_ENTRY), 0);
-					LdrTable = (PLDR_DATA_TABLE_ENTRY)(Buffer.InLoadOrderLinks.Flink);
+					ReadProcessMemory(hProcess, Buffer.InLoadOrderLinks.Flink, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
+					LdrTable = (PNT_LDR_DATA_TABLE_ENTRY)(Buffer.InLoadOrderLinks.Flink);
 				} while (LdrTable != EndLdrTable);
 				ret = 1;
 			}
@@ -317,10 +317,17 @@ namespace libScanHook
 		Fixup = (USHORT *)((DWORD)RelocTable + sizeof(IMAGE_BASE_RELOCATION));
 		for (DWORD i = 0; i < ((RelocTable->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) / 2); i++)
 		{
-			if ((Fixup[i] >> 12) == IMAGE_REL_BASED_HIGHLOW)
+			__try
 			{
-				RelocAddress = (DWORD *)((Fixup[i] & 0xfff) + hModule + RelocTable->VirtualAddress);
-				*RelocAddress = *RelocAddress - PeHead->OptionalHeader.ImageBase + BaseAddress;
+				if ((Fixup[i] >> 12) == IMAGE_REL_BASED_HIGHLOW)
+				{
+					RelocAddress = (DWORD *)((Fixup[i] & 0xfff) + hModule + RelocTable->VirtualAddress);
+					*RelocAddress = *RelocAddress - PeHead->OptionalHeader.ImageBase + BaseAddress;
+				}
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				continue;
 			}
 		}
 	}
@@ -464,10 +471,10 @@ namespace libScanHook
 		WCHAR LibName[64];
 		DWORD ApiAddress = 0, LibNameSize, HostNameSize;
 		DWORD *Version;;
-		PAPI_SET_NAMESPACE_ARRAY_V2 SetMapHead_v2;
-		PAPI_SET_VALUE_ARRAY_V2 SetMapHost_v2;
-		PAPI_SET_NAMESPACE_ARRAY_V4 SetMapHead_v4;
-		PAPI_SET_VALUE_ARRAY_V4 SetMapHost_v4;
+		PNT_API_SET_NAMESPACE_ARRAY_V2 SetMapHead_v2;
+		PNT_API_SET_VALUE_ARRAY_V2 SetMapHost_v2;
+		PNT_API_SET_NAMESPACE_ARRAY_V4 SetMapHead_v4;
+		PNT_API_SET_VALUE_ARRAY_V4 SetMapHost_v4;
 		Version = ApiSetMapHead;
 		ptr = wcschr(ApiSetName, L'.');
 		if (ptr)
@@ -478,7 +485,7 @@ namespace libScanHook
 			{
 			case 2:
 			{
-					  SetMapHead_v2 = (PAPI_SET_NAMESPACE_ARRAY_V2)Version;
+					  SetMapHead_v2 = (PNT_API_SET_NAMESPACE_ARRAY_V2)Version;
 					  for (DWORD i = 0; i < SetMapHead_v2->Count; i++)
 					  {
 						  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].NameOffset);
@@ -486,7 +493,7 @@ namespace libScanHook
 						  wcsncpy_s(LibName, 64, NameBuffer, LibNameSize / sizeof(WCHAR));
 						  if (!_wcsicmp((WCHAR *)(ApiSetName + 4), LibName))
 						  {
-							  SetMapHost_v2 = (PAPI_SET_VALUE_ARRAY_V2)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].DataOffset);
+							  SetMapHost_v2 = (PNT_API_SET_VALUE_ARRAY_V2)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].DataOffset);
 							  if (SetMapHost_v2->Count == 1)
 							  {
 								  HostNameSize = SetMapHost_v2->Entry[0].ValueLength;
@@ -510,7 +517,7 @@ namespace libScanHook
 			}
 			case 4:
 			{
-					  SetMapHead_v4 = (PAPI_SET_NAMESPACE_ARRAY_V4)Version;
+					  SetMapHead_v4 = (PNT_API_SET_NAMESPACE_ARRAY_V4)Version;
 					  for (DWORD i = 0; i < SetMapHead_v4->Count; i++)
 					  {
 						  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHead_v4->Entry[i].NameOffset);
@@ -518,7 +525,7 @@ namespace libScanHook
 						  wcsncpy_s(LibName, 64, NameBuffer, LibNameSize / sizeof(WCHAR));
 						  if (!_wcsicmp((WCHAR *)(ApiSetName + 4), LibName))
 						  {
-							  SetMapHost_v4 = (PAPI_SET_VALUE_ARRAY_V4)((DWORD)SetMapHead_v4 + SetMapHead_v4->Entry[i].DataOffset);
+							  SetMapHost_v4 = (PNT_API_SET_VALUE_ARRAY_V4)((DWORD)SetMapHead_v4 + SetMapHead_v4->Entry[i].DataOffset);
 							  if (SetMapHost_v4->Count == 1)
 							  {
 								  HostNameSize = SetMapHost_v4->Entry[0].ValueLength;

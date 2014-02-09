@@ -1,5 +1,7 @@
 #pragma once
 
+#pragma comment(lib, "ntdll.lib")
+
 //宏
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 #define InitializeObjectAttributes( p, n, a, r, s ) { (p)->Length = sizeof( OBJECT_ATTRIBUTES ); \
@@ -7,32 +9,94 @@
 	(p)->SecurityDescriptor = s; (p)->SecurityQualityOfService = NULL; }
 
 //类型定义
-typedef int IO_APC_ROUTINE;
-typedef IO_APC_ROUTINE *PIO_APC_ROUTINE;
+typedef int NT_IO_APC_ROUTINE;
+typedef NT_IO_APC_ROUTINE *PNT_IO_APC_ROUTINE;
 typedef long NTSTATUS;
 typedef long KPRIORITY;
-typedef unsigned short UINT16;
 
 //结构声明
-/*typedef struct _LIST_ENTRY {
-	struct _LIST_ENTRY *Flink;
-	struct _LIST_ENTRY *Blink;
-} LIST_ENTRY, *PLIST_ENTRY;*/
+typedef struct _NT_API_SET_NAMESPACE_ENTRY_V2
+{
+	DWORD NameOffset;
+	DWORD NameLength;
+	DWORD DataOffset;                     //指明API_SET_VALUE_ARRAY_V2相对于API_SET_NAMESPACE_ARRAY_V2的偏移
+} NT_API_SET_NAMESPACE_ENTRY_V2, *PNT_API_SET_NAMESPACE_ENTRY_V2;
 
-typedef struct _STRING
+typedef struct _NT_API_SET_NAMESPACE_ARRAY_V2
+{
+	DWORD Version;
+	DWORD Count;       //指明有多少个API_SET_MAP_ENTRY
+	NT_API_SET_NAMESPACE_ENTRY_V2 Entry[1];
+} NT_API_SET_NAMESPACE_ARRAY_V2, *PNT_API_SET_NAMESPACE_ARRAY_V2;
+
+typedef struct _NT_API_SET_VALUE_ENTRY_V2
+{
+	DWORD NameOffset;
+	DWORD NameLength;
+	DWORD ValueOffset;
+	DWORD ValueLength;
+} NT_API_SET_VALUE_ENTRY_V2, *PNT_API_SET_VALUE_ENTRY_V2;
+
+typedef struct _NT_API_SET_VALUE_ARRAY_V2
+{
+	DWORD Count;                                  //API_SET_VALUE_ENTRY_V2的数量
+	NT_API_SET_VALUE_ENTRY_V2 Entry[1];
+} NT_API_SET_VALUE_ARRAY_V2, *PNT_API_SET_VALUE_ARRAY_V2;
+
+typedef struct _NT_API_SET_NAMESPACE_ENTRY_V4
+{
+	DWORD Flags;
+	DWORD NameOffset;
+	DWORD NameLength;
+	DWORD AliasOffset;
+	DWORD AliasLength;
+	DWORD DataOffset;                                 //API_SET_VALUE_ARRAY_V4相对于API_SET_NAMESPACE_ARRAY_V4的偏移
+} NT_API_SET_NAMESPACE_ENTRY_V4, *PNT_API_SET_NAMESPACE_ENTRY_V4;
+
+typedef struct _NT_API_SET_NAMESPACE_ARRAY_V4
+{
+	DWORD Version;
+	DWORD Size;
+	DWORD Flags;
+	DWORD Count;                                         //指明有多少个API_SET_NAMESPACE_ENTRY_V4
+	NT_API_SET_NAMESPACE_ENTRY_V4 Entry[1];
+} NT_API_SET_NAMESPACE_ARRAY_V4, *PNT_API_SET_NAMESPACE_ARRAY_V4;
+
+typedef struct _NT_API_SET_VALUE_ENTRY_V4
+{
+	DWORD Flags;
+	DWORD NameOffset;
+	DWORD NameLength;
+	DWORD ValueOffset;
+	DWORD ValueLength;
+} NT_API_SET_VALUE_ENTRY_V4, *PNT_API_SET_VALUE_ENTRY_V4;
+
+typedef struct _API_SET_VALUE_ARRAY_V4
+{
+	DWORD Flags;
+	DWORD Count;
+	NT_API_SET_VALUE_ENTRY_V4 Entry[1];
+} NT_API_SET_VALUE_ARRAY_V4, *PNT_API_SET_VALUE_ARRAY_V4;
+
+typedef struct _NT_LIST_ENTRY {
+	struct _NT_LIST_ENTRY *Flink;
+	struct _NT_LIST_ENTRY *Blink;
+} NT_LIST_ENTRY, *PNT_LIST_ENTRY;
+
+typedef struct _NT_STRING
 {
 	UINT16 Length;
 	UINT16 MaximumLength;
 	char *Buffer;
-}STRING, *PSTRING;
+}NT_ANSI_STRING, *PNT_ANSI_STRING;
 
-typedef struct _UNICODE_STRING {
+typedef struct _NT_UNICODE_STRING {
 	USHORT Length;
 	USHORT MaximumLength;
 	PWSTR  Buffer;
-} UNICODE_STRING, *PUNICODE_STRING;
+} NT_UNICODE_STRING, *PNT_UNICODE_STRING;
 
-/*typedef union _LARGE_INTEGER
+typedef union _NT_LARGE_INTEGER
 {
 	struct
 	{
@@ -44,29 +108,65 @@ typedef struct _UNICODE_STRING {
 		ULONG LowPart;
 		LONG HighPart;
 	}u;
-	__int64 QuadPart;
-}LARGE_INTEGER, *PLARGE_INTEGER;*/
+	LONGLONG QuadPart;
+}NT_LARGE_INTEGER, *PNT_LARGE_INTEGER;
 
-typedef struct _CURDIR
+typedef struct _NT_ULARGE_INTEGER
 {
-	UNICODE_STRING DosPath;
+	struct
+	{
+		ULONG LowPart;
+		ULONG HighPart;
+	};
+	struct
+	{
+		ULONG LowPart;
+		ULONG HighPart;
+	}u;
+	LONGLONG QuadPart;
+}NT_ULARGE_INTEGER, *PNT_ULARGE_INTEGER;
+
+typedef struct _NT_CURDIR
+{
+	NT_UNICODE_STRING DosPath;
 	void *Handle;
-}CURDIR, *PCURDIR;
+}NT_CURDIR, *PNT_CURDIR;
 
-typedef struct _ACTIVATION_CONTEXT
+typedef struct _NT_CLIENT_ID
+{
+	HANDLE UniqueProcess;
+	HANDLE UniqueThread;
+} NT_CLIENT_ID, *PNT_CLIENT_ID;
+
+typedef struct _NT_ACTIVATION_CONTEXT
 {
 
-}ACTIVATION_CONTEXT, *PACTIVATION_CONTEXT;
+}NT_ACTIVATION_CONTEXT, *PNT_ACTIVATION_CONTEXT;
 
-typedef struct _RTL_DRIVE_LETTER_CURDIR
+typedef struct _NT_ACTIVATION_CONTEXT_DATA
+{
+
+}NT_ACTIVATION_CONTEXT_DATA, *PNT_ACTIVATION_CONTEXT_DATA;
+
+typedef struct _NT_ASSEMBLY_STORAGE_MAP
+{
+
+}NT_ASSEMBLY_STORAGE_MAP, *PNT_ASSEMBLY_STORAGE_MAP;
+
+typedef struct _NT_FLS_CALLBACK_INFO
+{
+
+}NT_FLS_CALLBACK_INFO, *PNT_FLS_CALLBACK_INFO;
+
+typedef struct _NT_RTL_DRIVE_LETTER_CURDIR
 {
 	UINT16 Flags;
 	UINT16  Length;
 	ULONG TimeStamp;
-	STRING DosPath;
-}RTL_DRIVE_LETTER_CURDIR, *PRTL_DRIVE_LETTER_CURDIR;
+	NT_ANSI_STRING DosPath;
+}NT_RTL_DRIVE_LETTER_CURDIR, *PNT_RTL_DRIVE_LETTER_CURDIR;
 
-typedef struct _RTL_USER_PROCESS_PARAMETERS
+typedef struct _NT_RTL_USER_PROCESS_PARAMETERS
 {
 	ULONG MaximumLength;  
 	ULONG Length;
@@ -77,10 +177,10 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	void *StandardInput;
 	void *StandardOutput;
 	void *StandardError;
-	CURDIR CurrentDirectory;
-	UNICODE_STRING DllPath; 
-	UNICODE_STRING ImagePathName;
-	UNICODE_STRING CommandLine;
+	NT_CURDIR CurrentDirectory;
+	NT_UNICODE_STRING DllPath;
+	NT_UNICODE_STRING ImagePathName;
+	NT_UNICODE_STRING CommandLine;
 	void *Environment; 
 	ULONG  StartingX;
 	ULONG  StartingY;
@@ -91,31 +191,54 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	ULONG FillAttribute; 
 	ULONG WindowFlags;
 	ULONG ShowWindowFlags; 
-	UNICODE_STRING WindowTitle;
-	UNICODE_STRING DesktopInfo;
-	UNICODE_STRING ShellInfo;
-	UNICODE_STRING RuntimeData;
-	RTL_DRIVE_LETTER_CURDIR CurrentDirectores[32]; 
+	NT_UNICODE_STRING WindowTitle;
+	NT_UNICODE_STRING DesktopInfo;
+	NT_UNICODE_STRING ShellInfo;
+	NT_UNICODE_STRING RuntimeData;
+	NT_RTL_DRIVE_LETTER_CURDIR CurrentDirectores[32];
 	ULONG EnvironmentSize; 
 	ULONG EnvironmentVersion;
-}RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
+}NT_RTL_USER_PROCESS_PARAMETERS, *PNT_RTL_USER_PROCESS_PARAMETERS;
 
-typedef struct _LDR_DATA_TABLE_ENTRY
+typedef struct _NT_RTL_CRITICAL_SECTION_DEBUG
 {
-	LIST_ENTRY InLoadOrderLinks;
-	LIST_ENTRY InMemoryOrderLinks;
-	LIST_ENTRY InInitializationOrderLinks;
+	WORD Type;
+	WORD CreatorBackTraceIndex;
+	struct _NT_RTL_CRITICAL_SECTION *CriticalSection;
+	NT_LIST_ENTRY ProcessLocksList;
+	ULONG EntryCount;
+	ULONG ContentionCount;
+	ULONG Flags;
+	WORD CreatorBackTraceIndexHigh;
+	WORD SpareUSHORT;
+}NT_RTL_CRITICAL_SECTION_DEBUG, *PNT_RTL_CRITICAL_SECTION_DEBUG;
+
+typedef struct _NT_RTL_CRITICAL_SECTION
+{
+	struct _NT_RTL_CRITICAL_SECTION_DEBUG *DebugInfo;
+	LONG LockCount;
+	LONG RecursionCount;
+	PVOID OwningThread;
+	PVOID LockSemaphore;
+	ULONG SpinCount;
+}NT_RTL_CRITICAL_SECTION, *PNT_RTL_CRITICAL_SECTION;
+
+typedef struct _NT_LDR_DATA_TABLE_ENTRY
+{
+	NT_LIST_ENTRY InLoadOrderLinks;
+	NT_LIST_ENTRY InMemoryOrderLinks;
+	NT_LIST_ENTRY InInitializationOrderLinks;
 	void *DllBase;
 	void *EntryPoint;
 	ULONG SizeOfImage;
-	UNICODE_STRING FullDllName;
-	UNICODE_STRING BaseDllName; 
+	NT_UNICODE_STRING FullDllName;
+	NT_UNICODE_STRING BaseDllName;
 	ULONG Flags; 
 	UINT16 LoadCount;
 	UINT16 TlsIndex;
 	union
 	{
-		LIST_ENTRY HashLinks;
+		NT_LIST_ENTRY HashLinks;
 		struct
 		{
 			void *SectionPointer;
@@ -127,35 +250,255 @@ typedef struct _LDR_DATA_TABLE_ENTRY
 		ULONG TimeDateStamp;
 		void *LoadedImports; 
 	};
-	PACTIVATION_CONTEXT EntryPointActivationContext; 
+	PNT_ACTIVATION_CONTEXT EntryPointActivationContext;
 	void *PatchInformation;
-	LIST_ENTRY ForwarderLinks;
-	LIST_ENTRY ServiceTagLinks;
-	LIST_ENTRY StaticLinks;   
+	NT_LIST_ENTRY ForwarderLinks;
+	NT_LIST_ENTRY ServiceTagLinks;
+	NT_LIST_ENTRY StaticLinks;
 	void *ContextInformation;
 	ULONG OriginalBase;
-	LARGE_INTEGER LoadTime;
-}LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
+	NT_LARGE_INTEGER LoadTime;
+}NT_LDR_DATA_TABLE_ENTRY, *PNT_LDR_DATA_TABLE_ENTRY;
 
 typedef struct _NT_PEB_LDR_DATA
 {
 	DWORD Length;
 	UCHAR Initialized;
 	PVOID SsHandle;
-	LIST_ENTRY InLoadOrderModuleList;
-	LIST_ENTRY InMemoryOrderModuleList;
-	LIST_ENTRY InInitializationOrderModuleList;
+	NT_LIST_ENTRY InLoadOrderModuleList;
+	NT_LIST_ENTRY InMemoryOrderModuleList;
+	NT_LIST_ENTRY InInitializationOrderModuleList;
 	PVOID EntryInProgress;
+	UCHAR ShutdownInProgress;
+	PVOID ShutdownThreadId;
 }NT_PEB_LDR_DATA, *PNT_PEB_LDR_DATA;
 
-typedef enum _MEMORY_INFORMATION_CLASS 
+typedef struct _NT_RTL_ACTIVATION_CONTEXT_STACK_FRAME
+{
+	struct _NT_RTL_ACTIVATION_CONTEXT_STACK_FRAME *Previous;
+	PNT_ACTIVATION_CONTEXT ActivationContext;
+	ULONG Flags;
+}NT_RTL_ACTIVATION_CONTEXT_STACK_FRAME, *PNT_RTL_ACTIVATION_CONTEXT_STACK_FRAME;
+
+typedef struct _NT_ACTIVATION_CONTEXT_STACK
+{
+	PNT_RTL_ACTIVATION_CONTEXT_STACK_FRAME ActiveFrame;
+	NT_LIST_ENTRY FrameListCache;
+	ULONG Flags;
+	ULONG NextCookieSequenceNumber;
+	ULONG StackId;
+}NT_ACTIVATION_CONTEXT_STACK, *PNT_ACTIVATION_CONTEXT_STACK;
+
+typedef struct _NT_TEB_ACTIVE_FRAME_CONTEXT
+{
+	ULONG Flags;
+	char *FrameName;
+}NT_TEB_ACTIVE_FRAME_CONTEXT, *PNT_TEB_ACTIVE_FRAME_CONTEXT;
+
+typedef struct _NT_TEB_ACTIVE_FRAME
+{
+	ULONG Flags;
+	struct _NT_TEB_ACTIVE_FRAME *Previous;
+	PNT_TEB_ACTIVE_FRAME_CONTEXT Context;
+}NT_TEB_ACTIVE_FRAME, *PNT_TEB_ACTIVE_FRAME;
+
+typedef struct _NT_GDI_TEB_BATCH
+{
+	ULONG Offset;
+	ULONG HDC;
+	ULONG Buffer[310];
+}NT_GDI_TEB_BATCH, *PNT_GDI_TEB_BATCH;
+
+typedef struct _NT_PEB
+{
+	UCHAR InheritedAddressSpace;
+	UCHAR ReadImageFileExecOptions;
+	UCHAR BeingDebugged;
+	UCHAR BitField;
+	PVOID ImageBaseAddress;
+	PNT_PEB_LDR_DATA Ldr;
+	PNT_RTL_USER_PROCESS_PARAMETERS ProcessParameters;
+	PVOID SubSystemData;
+	PVOID ProcessHeap;
+	PNT_RTL_CRITICAL_SECTION FastPebLock;
+	PVOID AtlThunkSListPtr;
+	PVOID IFEOKey;
+	ULONG CrossProcessFlags;
+	PVOID KernelCallbackTable;
+	PVOID UserSharedInfoPtr;
+	ULONG SystemReserved[1];
+	ULONG AtlThunkSListPtr32;
+	PVOID ApiSetMap;
+	ULONG TlsExpansionCounter;
+	PVOID TlsBitmap;
+	ULONG TlsBitmapBits[2];
+	PVOID ReadOnlySharedMemoryBase;
+	PVOID SparePvoid0;
+	PVOID ReadOnlyStaticServerData;
+	PVOID AnsiCodePageData;
+	PVOID OemCodePageData;
+	PVOID UnicodeCaseTableData;
+	ULONG NumberOfProcessors;
+	ULONG NtGlobalFlag;
+	NT_LARGE_INTEGER CriticalSectionTimeout;
+	ULONG HeapSegmentReserve;
+	ULONG HeapSegmentCommit;
+	ULONG HeapDeCommitTotalFreeThreshold;
+	ULONG HeapDeCommitFreeBlockThreshold;
+	ULONG NumberOfHeaps;
+	ULONG MaximumNumberOfHeaps;
+	PVOID *ProcessHeaps;
+	PVOID GdiSharedHandleTable;
+	PVOID ProcessStarterHelper;
+	ULONG GdiDCAttributeList;
+	PNT_RTL_CRITICAL_SECTION LoaderLock;
+	ULONG OSMajorVersion;
+	ULONG OSMinorVersion;
+	WORD OSBuildNumber;
+	WORD OSCSDVersion;
+	ULONG OSPlatformId;
+	ULONG ImageSubsystem;
+	ULONG ImageSubsystemMajorVersion;
+	ULONG ImageSubsystemMinorVersion;
+	ULONG ActiveProcessAffinityMask;
+	ULONG GdiHandleBuffer[34];
+	PVOID PostProcessInitRoutine;
+	PVOID TlsExpansionBitmap;
+	ULONG TlsExpansionBitmapBits[32];
+	ULONG SessionId;
+	NT_ULARGE_INTEGER AppCompatFlags;
+	NT_ULARGE_INTEGER AppCompatFlagsUser;
+	PVOID pShimData;
+	PVOID AppCompatInfo;
+	NT_UNICODE_STRING CSDVersion;
+	PNT_ACTIVATION_CONTEXT_DATA ActivationContextData;
+	PNT_ASSEMBLY_STORAGE_MAP ProcessAssemblyStorageMap;
+	PNT_ACTIVATION_CONTEXT_DATA SystemDefaultActivationContextData;
+	PNT_ASSEMBLY_STORAGE_MAP SystemAssemblyStorageMap;
+	ULONG MinimumStackCommit;
+	PNT_FLS_CALLBACK_INFO FlsCallback;
+	PNT_LIST_ENTRY FlsListHead;
+	PVOID FlsBitmap;
+	ULONG FlsBitmapBits[4];
+	ULONG FlsHighIndex;
+	PVOID WerRegistrationData;
+	PVOID WerShipAssertPtr;
+	PVOID pUnused;
+	PVOID pImageHeaderHash;
+	ULONG TracingFlags;
+	ULONGLONG CsrServerReadOnlySharedMemoryBase;
+}NT_PEB, *PNT_PEB;
+
+typedef struct _NT_TEB
+{
+	PNT_TIB NtTib;
+	PVOID EnvironmentPointer;
+	NT_CLIENT_ID ClientId;
+	PVOID ActiveRpcHandle;
+	PVOID ThreadLocalStoragePointer;
+	PNT_PEB ProcessEnvironmentBlock;
+	ULONG LastErrorValue;
+	ULONG CountOfOwnedCriticalSections;
+	PVOID CsrClientThread;
+	PVOID Win32ThreadInfo;
+	ULONG User32Reserved[26];;
+	ULONG UserReserved[5];
+	PVOID WOW32Reserved;
+	ULONG CurrentLocale;
+	ULONG FpSoftwareStatusRegister;
+	PVOID SystemReserved1[54];
+	LONG ExceptionCode;
+	PNT_ACTIVATION_CONTEXT_STACK ActivationContextStackPointer;
+	UCHAR SpareBytes[36];
+	ULONG TxFsContext;
+	NT_GDI_TEB_BATCH GdiTebBatch;
+	NT_CLIENT_ID RealClientId;
+	PVOID GdiCachedProcessHandle;
+	ULONG GdiClientPID;
+	ULONG GdiClientTID;
+	PVOID GdiThreadLocalInfo;
+	ULONG Win32ClientInfo[62];
+	PVOID glDispatchTable[233];
+	ULONG glReserved1[29];
+	PVOID glReserved2;
+	PVOID glSectionInfo;
+	PVOID glSection;
+	PVOID glTable;
+	PVOID glCurrentRC;
+	PVOID glContext;
+	ULONG LastStatusValue;
+	NT_UNICODE_STRING StaticUnicodeString;
+	WCHAR StaticUnicodeBuffer[261];
+	PVOID DeallocationStack;
+	PVOID TlsSlots[64];
+	NT_LIST_ENTRY TlsLinks;
+	PVOID Vdm;
+	PVOID ReservedForNtRpc;
+	PVOID DbgSsReserved[2];
+	ULONG HardErrorMode;
+	PVOID  Instrumentation[9];
+	GUID ActivityId;
+	PVOID SubProcessTag;
+	PVOID PerflibData;
+	PVOID EtwTraceData;
+	PVOID WinSockData;
+	ULONG GdiBatchCount;
+	union
+	{
+		PROCESSOR_NUMBER CurrentIdealProcessor;
+		ULONG IdealProcessorValue;
+		struct
+		{
+			UCHAR ReservedPad0;
+			UCHAR ReservedPad1;
+			UCHAR ReservedPad2;
+			UCHAR IdealProcessor;
+		};
+	};
+	ULONG GuaranteedStackBytes;
+	PVOID ReservedForPerf;
+	PVOID ReservedForOle;
+	ULONG WaitingOnLoaderLock;
+	PVOID SavedPriorityState;
+	ULONG ReservedForCodeCoverage;
+	PVOID ThreadPoolData;
+	PVOID TlsExpansionSlots;
+	ULONG MuiGeneration;
+	ULONG IsImpersonating;
+	PVOID NlsCache;
+	PVOID pShimData;
+	WORD HeapVirtualAffinity;
+	WORD LowFragHeapDataSlot;
+	PVOID CurrentTransactionHandle;
+	PNT_TEB_ACTIVE_FRAME ActiveFrame;
+	PVOID FlsData;
+	PVOID PreferredLanguages;
+	PVOID UserPrefLanguages;
+	PVOID MergedPrefLanguages;
+	ULONG MuiImpersonation;
+	union
+	{
+		WORD CrossTebFlags;
+		WORD SpareCrossTebBits;
+	};
+	WORD SameTebFlags;
+	PVOID TxnScopeEnterCallback;
+	PVOID TxnScopeExitCallback;
+	PVOID TxnScopeContext;
+	ULONG LockCount;
+	ULONG SpareUlong0;
+	PVOID ResourceRetValue;
+	PVOID ReservedForWdf;
+}NT_TEB, *PNT_TEB;
+
+typedef enum _NT_MEMORY_INFORMATION_CLASS
 {
 MemoryBasicInformation,
 MemoryWorkingSetList,
 MemorySectionName
-}MEMORY_INFORMATION_CLASS;
+}NT_MEMORY_INFORMATION_CLASS;
 
-typedef enum _SYSTEM_INFORMATION_CLASS {
+typedef enum _NT_SYSTEM_INFORMATION_CLASS {
   SystemBasicInformation,    //0
   SystemProcessorInformation,             // obsolete...delete  1
   SystemPerformanceInformation,    //2
@@ -239,15 +582,9 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
   SystemMemoryListInformation,           //80
   SystemFileCacheInformationEx,            //81
   MaxSystemInfoClass          // MaxSystemInfoClass should always be the last enum     82
-} SYSTEM_INFORMATION_CLASS, *PSYSTEM_INFORMATION_CLASS;
+} NT_SYSTEM_INFORMATION_CLASS, *PNT_SYSTEM_INFORMATION_CLASS;
 
-typedef struct _CLIENT_ID   
-{   
-    HANDLE UniqueProcess;   
-    HANDLE UniqueThread; 
-} CLIENT_ID, *PCLIENT_ID;
-
-typedef enum _THREAD_STATE   
+typedef enum _NT_THREAD_STATE
 {   
     StateInitialized,   
     StateReady,   
@@ -257,9 +594,9 @@ typedef enum _THREAD_STATE
     StateWait,   
     StateTransition,   
     StateUnknown 
-} THREAD_STATE;
+} NT_THREAD_STATE;
 
-typedef enum _KWAIT_REASON   
+typedef enum _NT_KWAIT_REASON
 {   
     Executive,   
     FreePage,   
@@ -288,9 +625,9 @@ typedef enum _KWAIT_REASON
     Spare5,   
     Spare6,   
     WrKernel 
-} KWAIT_REASON;
+} NT_KWAIT_REASON;
 
-typedef struct _VM_COUNTERS
+typedef struct _NT_VM_COUNTERS
 {
 	ULONG PeakVirtualSize;      
     ULONG VirtualSize;                  
@@ -303,69 +640,72 @@ typedef struct _VM_COUNTERS
     ULONG QuotaNonPagedPoolUsage;       
     ULONG PagefileUsage;               
     ULONG PeakPagefileUsage;  
-}VM_COUNTERS, *PVM_COUNTERS;
+}NT_VM_COUNTERS, *PNT_VM_COUNTERS;
 
-typedef struct _SYSTEM_THREADS   
+typedef struct _NT_SYSTEM_THREADS
 {   
-    LARGE_INTEGER KernelTime;   
-    LARGE_INTEGER UserTime;   
-    LARGE_INTEGER CreateTime;   
+	NT_LARGE_INTEGER KernelTime;
+	NT_LARGE_INTEGER UserTime;
+	NT_LARGE_INTEGER CreateTime;
     ULONG WaitTime;   
     PVOID StartAddress;   
-    CLIENT_ID ClientId;   
+	NT_CLIENT_ID ClientId;
     KPRIORITY Priority;   
     KPRIORITY BasePriority;   
     ULONG ContextSwitchCount;   
-    THREAD_STATE State;   
-    KWAIT_REASON WaitReason;
-} SYSTEM_THREADS, *PSYSTEM_THREADS;
+	NT_THREAD_STATE State;
+	NT_KWAIT_REASON WaitReason;
+} NT_SYSTEM_THREADS, *PNT_SYSTEM_THREADS;
 
-typedef struct _SYSTEM_PROCESSES   
+typedef struct _NT_SYSTEM_PROCESSES
 {   
     ULONG NextEntryOffset;   
     ULONG ThreadCount;   
     ULONG Reserved1[6];   
-    LARGE_INTEGER CreateTime;   
-    LARGE_INTEGER UserTime;   
-    LARGE_INTEGER KernelTime;   
-    UNICODE_STRING ProcessName;   
+	NT_LARGE_INTEGER CreateTime;
+	NT_LARGE_INTEGER UserTime;
+	NT_LARGE_INTEGER KernelTime;
+	NT_UNICODE_STRING ProcessName;
     KPRIORITY BasePriority;   
     ULONG ProcessId;   
     ULONG InheritedFromProcessId;   
     ULONG HandleCount;   
     ULONG Reserved2[2];   
-    VM_COUNTERS  VmCounters;   
+	NT_VM_COUNTERS  VmCounters;
     IO_COUNTERS IoCounters;   
-    SYSTEM_THREADS Threads[1];   
-} SYSTEM_PROCESSES, *PSYSTEM_PROCESSES;  
+	NT_SYSTEM_THREADS Threads[1];
+} NT_SYSTEM_PROCESSES, *PNT_SYSTEM_PROCESSES;
 
-typedef enum _OBJECT_INFORMATION_CLASS
+typedef enum _NT_OBJECT_INFORMATION_CLASS
 {
     ObjectBasicInformation,
     ObjectNameInformation,
     ObjectTypeInformation,
     ObjectAllInformation,
     ObjectDataInformation
-} OBJECT_INFORMATION_CLASS, *POBJECT_INFORMATION_CLASS;
+} NT_OBJECT_INFORMATION_CLASS, *PNT_OBJECT_INFORMATION_CLASS;
 
-typedef struct _OBJECT_ATTRIBUTES {
+typedef struct _NT_OBJECT_ATTRIBUTES 
+{
   ULONG Length;
   HANDLE RootDirectory;
-  PUNICODE_STRING ObjectName;
+  PNT_UNICODE_STRING ObjectName;
   ULONG Attributes;
   PVOID SecurityDescriptor;
   PVOID SecurityQualityOfService;
-}  OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
+}  NT_OBJECT_ATTRIBUTES, *PNT_OBJECT_ATTRIBUTES;
 
-typedef struct _IO_STATUS_BLOCK {
-  union {
+typedef struct _NT_IO_STATUS_BLOCK 
+{
+  union
+  {
     NTSTATUS Status;
     PVOID    Pointer;
   };
   ULONG_PTR Information;
-} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
+} NT_IO_STATUS_BLOCK, *PNT_IO_STATUS_BLOCK;
 
-/*typedef struct _CONTEXT {
+typedef struct _NT_CONTEXT {
 	ULONG ContextFlags;
 	ULONG   Dr0;
 	ULONG   Dr1;
@@ -391,9 +731,9 @@ typedef struct _IO_STATUS_BLOCK {
 	ULONG   Esp;
 	ULONG   SegSs;
 	UCHAR   ExtendedRegisters[MAXIMUM_SUPPORTED_EXTENSION];
-} CONTEXT, *PCONTEXT;*/
+} NT_CONTEXT, *PNT_CONTEXT;
 
-typedef enum _PROCESS_CLASS
+typedef enum _NT_PROCESS_CLASS
 {
 	ProcessBasicInformation,
 	ProcessQuotaLimits,
@@ -419,9 +759,9 @@ typedef enum _PROCESS_CLASS
 	ProcessAffinityMask,
 	ProcessPriorityBoost,
 	MaxProcessInfoClass
-}PROCESS_CLASS, *PPROCESS_CLASS;
+}NT_PROCESS_CLASS, *PNT_PROCESS_CLASS;
 
-typedef struct _PROCESS_BASIC_INFORMATION
+typedef struct _NT_PROCESS_BASIC_INFORMATION
 {
 	DWORD ExitStatus;
 	DWORD PebBaseAddress;
@@ -429,9 +769,9 @@ typedef struct _PROCESS_BASIC_INFORMATION
 	DWORD BasePriority;
 	ULONG UniqueProcessId;
 	ULONG InheritedFromUniqueProcessId;
-}PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
+}NT_PROCESS_BASIC_INFORMATION, *PNT_PROCESS_BASIC_INFORMATION;
 
-typedef struct _SYSTEM_HANDLE_INFORMATION
+typedef struct _NT_SYSTEM_HANDLE_INFORMATION
 {
 	ULONG ProcessId;
 	UCHAR ObjectTypeNumber;
@@ -439,18 +779,9 @@ typedef struct _SYSTEM_HANDLE_INFORMATION
 	USHORT Handle;
 	PVOID Object;
 	ACCESS_MASK GrantedAccess;
-}SYSTEM_HANDLE_INFORMATION, *PSYSTEM_HANDLE_INFORMATION;
+}NT_SYSTEM_HANDLE_INFORMATION, *PNT_SYSTEM_HANDLE_INFORMATION;
 
-/*typedef struct _OBJECT_ATTRIBUTES {
-	ULONG Length;
-	HANDLE RootDirectory;
-	PUNICODE_STRING ObjectName;
-	ULONG Attributes;
-	PVOID SecurityDescriptor;
-	PVOID SecurityQualityOfService;
-} OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;*/
-
-typedef enum _SYSTEM_HANDLE_TYPE
+typedef enum _NT_SYSTEM_HANDLE_TYPE
 {
 	OB_TYPE_UNKNOWN,	//0
 	OB_TYPE_TYPE,		//1
@@ -479,14 +810,36 @@ typedef enum _SYSTEM_HANDLE_TYPE
 	OB_TYPE_UNKNOWN_24,
 	OB_TYPE_IO_COMPLETION,//25
 	OB_TYPE_FILE		//26
-}SYSTEM_HANDLE_TYPE;
+}NT_SYSTEM_HANDLE_TYPE;
+
+typedef enum _NT_KEY_INFORMATION_CLASS {
+	KeyBasicInformation = 0,
+	KeyNodeInformation = 1,
+	KeyFullInformation = 2,
+	KeyNameInformation = 3,
+	KeyCachedInformation = 4,
+	KeyFlagsInformation = 5,
+	KeyVirtualizationInformation = 6,
+	KeyHandleTagsInformation = 7,
+	MaxKeyInfoClass = 8
+} NT_KEY_INFORMATION_CLASS;
+
+typedef enum _NT_KEY_VALUE_INFORMATION_CLASS {
+	KeyValueBasicInformation = 0,
+	KeyValueFullInformation,
+	KeyValuePartialInformation,
+	KeyValueFullInformationAlign64,
+	KeyValuePartialInformationAlign64,
+	MaxKeyValueInfoClass
+} NT_KEY_VALUE_INFORMATION_CLASS;
 
 //结构声明结束
 
 //函数声明
 
-extern "C" {
-	NTSTATUS WINAPI RtlAdjustPrivilege(
+extern "C" 
+{
+	NTSTATUS NTAPI RtlAdjustPrivilege(
 	ULONG Privilege,
 	BOOLEAN Enable,
 	BOOLEAN CurrentThread,
@@ -494,62 +847,78 @@ extern "C" {
 
 	PIMAGE_NT_HEADERS RtlImageNtHeader(IN PVOID ModuleAddress);
 
-    DWORD WINAPI RtlImageDirectoryEntryToData(
+	DWORD NTAPI RtlImageDirectoryEntryToData(
 	IN DWORD BaseAddress,
 	IN BOOL MappedAsImage,
 	IN DWORD dwDataDirectoryIndex, 
 	IN DWORD *Size);
 
-	NTSTATUS WINAPI LdrLoadDll(
+	NTSTATUS NTAPI LdrLoadDll(
 		IN PWCHAR PathToFile,
 		IN ULONG Flags,
-		IN PUNICODE_STRING ModuleFileName,
+		IN PNT_UNICODE_STRING ModuleFileName,
 		IN PHANDLE ModuleHandle);
 
-	NTSTATUS WINAPI NtOpenProcess(
+	NTSTATUS NTAPI NtOpenProcess(
 		OUT PHANDLE ProcessHandle,
 		IN ACCESS_MASK DesiredAccess,
-		IN POBJECT_ATTRIBUTES ObjectAttributes,
-		IN PCLIENT_ID ClientId);
-	NTSTATUS WINAPI NtQueryInformationProcess(
+		IN PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+		IN PNT_CLIENT_ID ClientId);
+
+	NTSTATUS NTAPI NtGetNextProcess(
+		HANDLE ProcessHandle,
+		ACCESS_MASK DesiredAccess,
+		ULONG HandleAttributes,
+		ULONG Flags,
+		PHANDLE NewProcessHandle);
+
+	NTSTATUS NTAPI NtGetNextThread(
+		HANDLE ProcessHandle,
+		HANDLE ThreadHandle,
+		ACCESS_MASK DesiredAccess,
+		ULONG HandleAttributes,
+		ULONG Flags,
+		PHANDLE NewThreadHandle);
+
+	NTSTATUS NTAPI NtQueryInformationProcess(
 		IN HANDLE ProcessHandle,
-		IN PROCESS_CLASS ProcessInformationClass,
+		IN NT_PROCESS_CLASS ProcessInformationClass,
 		OUT PVOID ProcessInformation,
 		IN ULONG ProcessInformationLength,
 		OUT PULONG ReturnLength);
 
-	NTSTATUS WINAPI NtTerminateProcess(
+	NTSTATUS NTAPI NtTerminateProcess(
 		IN HANDLE ProcessHandle,
 		IN NTSTATUS ExitStatus);
 
-	NTSTATUS WINAPI NtSuspendProcess(IN HANDLE hProcess);
+	NTSTATUS NTAPI NtSuspendProcess(IN HANDLE hProcess);
 
-	HANDLE WINAPI ZwCurrentProcess();
+	HANDLE NTAPI ZwCurrentProcess();
 
-	NTSTATUS WINAPI NtGetContextThread(IN HANDLE hThread, OUT PCONTEXT pContext);
+	NTSTATUS NTAPI NtGetContextThread(IN HANDLE hThread, OUT PNT_CONTEXT pContext);
 
-	NTSTATUS WINAPI NtSetContextThread(IN HANDLE hThread, IN PCONTEXT pContext);
+	NTSTATUS NTAPI NtSetContextThread(IN HANDLE hThread, IN PNT_CONTEXT pContext);
 
-	NTSTATUS WINAPI NtResumeThread(IN HANDLE hThread, OUT PULONG SuspendCount);
+	NTSTATUS NTAPI NtResumeThread(IN HANDLE hThread, OUT PULONG SuspendCount);
 
-    NTSTATUS WINAPI NtQuerySystemInformation(
-    IN      SYSTEM_INFORMATION_CLASS SystemInformationClass,
-    IN      PVOID SystemInformation,
-    IN      ULONG SystemInformationLength,
-    OUT   PULONG ReturnLength);
+	NTSTATUS NTAPI NtQuerySystemInformation(
+		IN      NT_SYSTEM_INFORMATION_CLASS SystemInformationClass,
+        IN      PVOID SystemInformation,
+        IN      ULONG SystemInformationLength,
+        OUT   PULONG ReturnLength);
 
-NTSTATUS WINAPI NtQueryObject(
+	NTSTATUS NTAPI NtQueryObject(
 	IN HANDLE Handle,
-	IN OBJECT_INFORMATION_CLASS ObjectInformationClass,
+	IN NT_OBJECT_INFORMATION_CLASS ObjectInformationClass,
 	OUT PVOID ObjectInformation,
 	IN ULONG ObjectInformationLength,
 	OUT PULONG ReturnLength);
 
-	NTSTATUS WINAPI NtCreateFile(
+	NTSTATUS NTAPI NtCreateFile(
 	OUT PHANDLE FileHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+	OUT PNT_IO_STATUS_BLOCK IoStatusBlock,
 	IN PLARGE_INTEGER AllocationSize,
 	IN ULONG FileAttributes,
 	IN ULONG ShareAccess,
@@ -558,49 +927,49 @@ NTSTATUS WINAPI NtQueryObject(
 	IN PVOID EaBuffer,
 	IN ULONG EaLength);
 
-	NTSTATUS WINAPI NtOpenFile(
+	NTSTATUS NTAPI NtOpenFile(
 	OUT PHANDLE FileHandle,
 	IN ACCESS_MASK DesiredAccess,
-	IN POBJECT_ATTRIBUTES ObjectAttributes,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	IN PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+	OUT PNT_IO_STATUS_BLOCK IoStatusBlock,
 	IN ULONG ShareAccess,
 	IN ULONG OpenOptions);
 
-	NTSTATUS WINAPI NtReadFile(
+	NTSTATUS NTAPI NtReadFile(
 	IN HANDLE FileHandle,
 	IN HANDLE Event,
-	IN PIO_APC_ROUTINE ApcRoutine,
+	IN PNT_IO_APC_ROUTINE ApcRoutine,
 	IN PVOID ApcContext,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	OUT PNT_IO_STATUS_BLOCK IoStatusBlock,
 	OUT PVOID Buffer,
 	IN ULONG Length,
 	IN PLARGE_INTEGER ByteOffset,
 	IN PULONG Key);
 
-    NTSTATUS WINAPI NtWriteFile(
+	NTSTATUS NTAPI NtWriteFile(
     IN HANDLE FileHandle,
 	IN HANDLE Event,
-	IN PIO_APC_ROUTINE ApcRoutine,
+	IN PNT_IO_APC_ROUTINE ApcRoutine,
 	IN PVOID ApcContext,
-	OUT PIO_STATUS_BLOCK IoStatusBlock,
+	OUT PNT_IO_STATUS_BLOCK IoStatusBlock,
 	IN PVOID Buffer,
 	IN ULONG Length,
 	IN PLARGE_INTEGER ByteOffset,
 	IN PULONG Key);
 
-	NTSTATUS WINAPI NtDeleteFile(IN POBJECT_ATTRIBUTES ObjectAttributes);
+	NTSTATUS NTAPI NtDeleteFile(IN PNT_OBJECT_ATTRIBUTES ObjectAttributes);
 
-	NTSTATUS WINAPI NtClose(IN HANDLE Handle);
+	NTSTATUS NTAPI NtClose(IN HANDLE Handle);
 
-	NTSTATUS WINAPI NtQueryVirtualMemory(
+	NTSTATUS NTAPI NtQueryVirtualMemory(
 		IN HANDLE ProcessHandle,
 		IN PVOID BaseAddress,
-		IN MEMORY_INFORMATION_CLASS MemoryInformationClass,
+		IN NT_MEMORY_INFORMATION_CLASS MemoryInformationClass,
 		OUT PVOID MemoryInformation,
 		IN ULONG MemoryInformationLength,
 		OUT PULONG ReturnLength OPTIONAL);
 
-	NTSTATUS WINAPI NtAllocateVirtualMemory(
+	NTSTATUS NTAPI NtAllocateVirtualMemory(
 		IN HANDLE hProcess,
 		IN PVOID *BaseAddress,
 		IN ULONG_PTR ZeroBits,
@@ -608,34 +977,34 @@ NTSTATUS WINAPI NtQueryObject(
 		IN ULONG AllocationType,
 		IN ULONG Protect);
 
-	NTSTATUS WINAPI NtWriteVirtualMemory(
+	NTSTATUS NTAPI NtWriteVirtualMemory(
 		IN HANDLE hProcess,
 		IN PVOID BaseAddress,
 		IN PVOID Buffer,
 		IN ULONG NumberOfBytesToWrite,
 		OUT PULONG NumberOfBytesWritten);
 
-	NTSTATUS WINAPI NtReadVirtualMemory(
+	NTSTATUS NTAPI NtReadVirtualMemory(
 		IN HANDLE hProcess,
 		IN PVOID BaseAddress,
 		OUT PVOID Buffer,
 		IN ULONG NumberOfBytesToRead,
 		OUT PULONG NumberOfBytesReaded);
 
-	NTSTATUS WINAPI NtProtectVirtualMemory(
+	NTSTATUS NTAPI NtProtectVirtualMemory(
 		IN HANDLE hProcess,
 		IN PVOID *BaseAddress,
 		IN PULONG NumberOfBytesToProtect,
 		IN ULONG NewAccessProtection,
 		OUT PULONG OldAccessProtection);
 
-	NTSTATUS WINAPI NtFreeVirtualMemory(
+	NTSTATUS NTAPI NtFreeVirtualMemory(
 		IN HANDLE hProcess,
 		IN PVOID *BaseAddress,
 		IN PSIZE_T RegionSize,
 		IN ULONG FreeType);
 
-	NTSTATUS WINAPI ZwDuplicateObject(
+	NTSTATUS NTAPI ZwDuplicateObject(
 		IN HANDLE  SourceProcessHandle,
 		IN HANDLE  SourceHandle,
 		IN HANDLE  TargetProcessHandle,
@@ -643,4 +1012,51 @@ NTSTATUS WINAPI NtQueryObject(
 		IN ACCESS_MASK  DesiredAccess,
 		IN ULONG  Attributes,
 		IN ULONG  Options);
+
+	NTSTATUS NTAPI NtCreateKey(
+		OUT PHANDLE KeyHandle,
+		IN  ACCESS_MASK DesiredAccess,
+		IN  PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+		IN  ULONG TitleIndex,
+		OPTIONAL  PNT_UNICODE_STRING Class,
+		IN  ULONG CreateOptions,
+		OPTIONAL PULONG Disposition
+		);
+
+	NTSTATUS NTAPI NtOpenKey(
+		OUT PHANDLE KeyHandle,
+		IN ACCESS_MASK DesiredAccess,
+		IN PNT_OBJECT_ATTRIBUTES ObjectAttributes
+		);
+
+	NTSTATUS NTAPI NtEnumerateKey(
+		IN HANDLE KeyHandle,
+		IN ULONG Index,
+		IN NT_KEY_INFORMATION_CLASS KeyInformationClass,
+		IN PVOID KeyInformation,
+		IN ULONG Length,
+		IN PULONG ResultLength
+		);
+
+	NTSTATUS NTAPI NtDeleteKey(IN HANDLE KeyHandle);
+
+	NTSTATUS NTAPI NtQueryValueKey(
+		IN HANDLE KeyHandle,
+		IN PNT_UNICODE_STRING ValueName,
+		IN NT_KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass,
+		OUT PVOID KeyValueInformation,
+		IN ULONG Length,
+		OUT PULONG ResultLength
+		);
+
+	NTSTATUS NTAPI NtSetValueKey(
+		IN HANDLE KeyHandle,
+		IN PNT_UNICODE_STRING ValueName,
+		IN ULONG TitleIndex OPTIONAL,
+		IN ULONG Type,
+		IN PVOID Data,
+		IN ULONG DataSize
+		);
+
+	NTSTATUS NTAPI NtDeleteValueKey(IN HANDLE KeyHandle, IN PNT_UNICODE_STRING ValueName);
 }
