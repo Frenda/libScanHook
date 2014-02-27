@@ -4,6 +4,7 @@
 #include<vector>
 #include<Psapi.h>
 #include "ntdll.h"
+#include "libdasm.h"
 #pragma comment(lib, "psapi.lib")
 using std::vector;
 
@@ -41,8 +42,8 @@ namespace libScanHook
 			DWORD SizeOfImage;
 			WCHAR FullName[260];
 			WCHAR BaseName[64];
-			BYTE *ScanBuffer;
-			BYTE *OrigBuffer;
+			void *ScanBuffer;
+			void *OrigBuffer;
 		} MODULE_INFO;
 
 		typedef struct _PE_INFO
@@ -55,7 +56,7 @@ namespace libScanHook
 		} PE_INFO, *PPE_INFO;
 
 	private:
-		bool ScanInlineHook(DWORD ApiAdress);
+		bool ScanInlineHook(char *ApiName, DWORD ApiAddress);
 		bool ScanEatHook(MODULE_INFO ModuleInfo);
 		bool ScanIatHook(MODULE_INFO ModuleInfo);
 
@@ -65,22 +66,23 @@ namespace libScanHook
 		DWORD MajorVersion, MinorVersion;
 		DWORD *ApiSetMapHead;
 		vector<MODULE_INFO> ModuleInfo;
-		vector<MODULE_INFO>::iterator Moduleiter;
+		vector<MODULE_INFO>::iterator ModuleInfoiter;
 		vector<PROCESS_HOOK_INFO> HookInfo;
-		vector<PROCESS_HOOK_INFO>::iterator Infoiter;
+		vector<PROCESS_HOOK_INFO>::iterator HookInfoiter;
 		PROCESS_HOOK_INFO Info;
 		bool ElevatedPriv();
-		void GetWindowsVersion();
-		PDWORD  GetApiSetMapHead();
+		bool CollectSystemInfo();
 		bool CollectModuleInfo();
-		bool PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize);
-		void FixRelocTable(DWORD hModule, DWORD BaseAddress);
+		bool PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize, DWORD DllBase);
+		void FixRelocTable(DWORD ModuleBase, DWORD NewModuleBase);
 		bool ParsePe(DWORD ImageBase, PPE_INFO PeInfo);
 		DWORD GetExportByOrdinal(DWORD ModuleBase, WORD Ordinal);
 		DWORD GetExportByName(DWORD ModuleBase, char *ProcName);
 		DWORD FileNameRedirection(DWORD ModuleBase, char *RedirectionName);
 		bool ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size);
 		DWORD MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
-		DWORD GetModulePathByAddress(HANDLE hProcess, DWORD Address, WCHAR *ModulePath);
+		bool GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter);
+		void GetModulePath(DWORD Address, WCHAR *ModulePath);
+		void GetModulePathByAddress(DWORD Address, WCHAR *ModulePath);
 	};
 }
