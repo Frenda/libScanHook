@@ -5,10 +5,11 @@
 extern "C"
 {
 	//宏
-#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
-#define InitializeObjectAttributes( p, n, a, r, s ) { (p)->Length = sizeof( OBJECT_ATTRIBUTES ); \
-	(p)->RootDirectory = r; (p)->Attributes = a; (p)->ObjectName = n; \
-	(p)->SecurityDescriptor = s; (p)->SecurityQualityOfService = NULL; }
+    #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+    #define InitializeObjectAttributes( p, n, a, r, s ) { (p)->Length = sizeof( OBJECT_ATTRIBUTES ); \
+	  (p)->RootDirectory = r; (p)->Attributes = a; (p)->ObjectName = n; \
+	  (p)->SecurityDescriptor = s; (p)->SecurityQualityOfService = NULL; }
+    #define LDRP_RELOCATION_FINAL 0x2
 
 	//类型
 	typedef int NT_IO_APC_ROUTINE;
@@ -820,6 +821,18 @@ extern "C"
 		ULONGLONG CsrServerReadOnlySharedMemoryBase;
 	} NT_PEB, *PNT_PEB;
 
+	typedef struct _NT_INITIAL_TEB
+	{
+		struct 
+		{
+			PVOID OldStackBase;
+			PVOID OldStackLimit;
+		} OldInitialTeb;
+		PVOID StackBase;
+		PVOID StackLimit;
+		PVOID StackAllocationBase;
+	} NT_INITIAL_TEB, *PNT_INITIAL_TEB;
+
 	typedef struct _NT_TEB
 	{
 		PNT_TIB NtTib;
@@ -1269,6 +1282,13 @@ extern "C"
 		ULONG Unknown2[3];
 	} NT_SECTION_IMAGE_INFORMATION, *PNT_SECTION_IMAGE_INFORMATION;
 
+	typedef struct _NT_JOB_SET_ARRAY
+	{
+		HANDLE JobHandle;
+		ULONG MemberLevel;
+		ULONG Flags;
+	} NT_JOB_SET_ARRAY, *PNT_JOB_SET_ARRAY;
+
 	//函数声明
 	//Unicode/Ansi string functions
 	VOID NTAPI RtlInitUnicodeString(OUT PNT_UNICODE_STRING DestinationString, IN PCWSTR SourceString);
@@ -1325,6 +1345,16 @@ extern "C"
 		IN PHANDLE ModuleHandle);
 
 	//Process Funtions
+	NTSTATUS NTAPI NtCreateProcess(
+		OUT PHANDLE ProcessHandle,
+		IN ACCESS_MASK DesiredAccess,
+		IN PNT_OBJECT_ATTRIBUTES ObjectAttributes ,
+		IN HANDLE ParentProcess,
+		IN BOOLEAN InheritObjectTable,
+		IN HANDLE SectionHandle,
+		IN HANDLE DebugPort,
+		IN HANDLE ExceptionPort);
+
 	NTSTATUS NTAPI NtOpenProcess(
 		OUT PHANDLE ProcessHandle,
 		IN ACCESS_MASK DesiredAccess,
@@ -1356,6 +1386,24 @@ extern "C"
 		IN ULONG ProcessInformationLength);
 
 	//Thread Funtions
+	NTSTATUS NTAPI NtCreateThread(
+		OUT PHANDLE ThreadHandle,
+		IN ACCESS_MASK DesiredAccess,
+		IN PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+		IN HANDLE ProcessHandle,
+		OUT PNT_CLIENT_ID ClientId,
+		IN PCONTEXT ThreadContext,
+		IN PNT_INITIAL_TEB InitialTeb,
+		IN BOOLEAN CreateSuspended);
+
+	NTSTATUS NTAPI NtOpenThread(
+		OUT PHANDLE ThreadHandle,
+		IN ACCESS_MASK AccessMask,
+		IN PNT_OBJECT_ATTRIBUTES ObjectAttributes,
+		IN PNT_CLIENT_ID ClientId);
+
+	NTSTATUS NTAPI NtTerminateThread(IN HANDLE ThreadHandle, IN NTSTATUS ExitStatus);
+
 	NTSTATUS NTAPI NtGetNextThread(
 		HANDLE ProcessHandle,
 		HANDLE ThreadHandle,
@@ -1450,7 +1498,6 @@ extern "C"
 		IN ULONG InputBufferLength,
 		OUT PVOID OutputBuffer,
 		IN ULONG OutputBufferLength);
-
 
 	NTSTATUS NTAPI NtDeleteFile(IN PNT_OBJECT_ATTRIBUTES ObjectAttributes);
 
@@ -1598,7 +1645,13 @@ extern "C"
 		OUT PNT_PORT_MESSAGE ReceiveMessage);
 
 	//Job Funtions
+	NTSTATUS NTAPI NtCreateJobObject(OUT PHANDLE JobHandle, IN ACCESS_MASK DesiredAccess, IN PNT_OBJECT_ATTRIBUTES ObjectAttributes);
 
+	NTSTATUS NTAPI NtAssignProcessToJobObject(IN HANDLE JobHandle, IN HANDLE ProcessHandle);
+
+	NTSTATUS NTAPI NtCreateJobSet(IN ULONG NumJob, IN PNT_JOB_SET_ARRAY UserJobSet, IN ULONG 	Flags);
+
+	NTSTATUS NTAPI NtTerminateJobObject(IN HANDLE JobHandle, IN NTSTATUS 	ExitStatus);
 
 	//Registry Funtions
 	NTSTATUS NTAPI NtCreateKey(

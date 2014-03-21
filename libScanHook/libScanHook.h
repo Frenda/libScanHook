@@ -2,10 +2,8 @@
 
 #include<Windows.h>
 #include<vector>
-#include<Psapi.h>
 #include "ntdll.h"
 #include "libdasm.h"
-#pragma comment(lib, "psapi.lib")
 using std::vector;
 
 typedef enum _HOOK_TYPE
@@ -49,16 +47,16 @@ namespace libScanHook
 		typedef struct _PE_INFO
 		{
 			PIMAGE_NT_HEADERS PeHead;
-			PIMAGE_EXPORT_DIRECTORY ExportTable;
+			DWORD ExportTableRva;
 			DWORD ExportSize;
-			PIMAGE_IMPORT_DESCRIPTOR ImportTable;
+			DWORD ImportTableRva;
 			DWORD ImportSize;
 		} PE_INFO, *PPE_INFO;
 
 	private:
-		bool ScanInlineHook(char *ApiName, DWORD ApiAddress);
-		bool ScanEatHook(MODULE_INFO ModuleInfo);
-		bool ScanIatHook(MODULE_INFO ModuleInfo);
+		bool ScanInlineHook(char *ApiName, DWORD Address);
+		bool ScanEatHook();
+		bool ScanIatHook();
 
 	private:
 		bool IsRedirction, IsFromRedirction;
@@ -69,19 +67,21 @@ namespace libScanHook
 		vector<MODULE_INFO>::iterator ModuleInfoiter;
 		vector<PROCESS_HOOK_INFO> HookInfo;
 		vector<PROCESS_HOOK_INFO>::iterator HookInfoiter;
-		PROCESS_HOOK_INFO Info;
 		bool ElevatedPriv();
-		bool CollectSystemInfo();
-		bool CollectModuleInfo();
+		bool QuerySystemInfo();
+		bool QueryModuleInfo();
 		bool PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize, DWORD DllBase);
-		void FixRelocTable(DWORD ModuleBase, DWORD NewModuleBase);
+		bool FixBaseRelocTable(DWORD NewImageBase, DWORD ExistImageBase);
+		PIMAGE_BASE_RELOCATION ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff);
+		bool IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva);
 		bool ParsePe(DWORD ImageBase, PPE_INFO PeInfo);
-		DWORD GetExportByOrdinal(DWORD ModuleBase, WORD Ordinal);
-		DWORD GetExportByName(DWORD ModuleBase, char *ProcName);
-		DWORD FileNameRedirection(DWORD ModuleBase, char *RedirectionName);
+		DWORD GetExportByOrdinal(DWORD ImageBase, WORD Ordinal);
+		DWORD GetExportByName(DWORD ImageBase, char *ProcName);
+		DWORD FileNameRedirection(DWORD ImageBase, char *RedirectionName);
 		bool ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size);
 		DWORD MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
 		bool GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter);
+		bool GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter);
 		void GetModulePath(DWORD Address, WCHAR *ModulePath);
 		void GetModulePathByAddress(DWORD Address, WCHAR *ModulePath);
 	};

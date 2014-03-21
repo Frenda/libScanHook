@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Hooktest">
+      <UniqueIdentifier>{ecd7f5d1-a391-453f-ae9f-1669d79a6eaa}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -30,17 +33,29 @@
     <ClInclude Include="ntdll.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="APIHook\APIHook.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="libdasm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="tables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="APIHook\HookApi.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="HookTest\APIHook.h">
+      <Filter>Hooktest</Filter>
+    </ClInclude>
+    <ClInclude Include="HookTest\CmnHdr.h">
+      <Filter>Hooktest</Filter>
+    </ClInclude>
+    <ClInclude Include="HookTest\HookTest.h">
+      <Filter>Hooktest</Filter>
+    </ClInclude>
+    <ClInclude Include="HookTest\inlinehook.h">
+      <Filter>Hooktest</Filter>
+    </ClInclude>
+    <ClInclude Include="HookTest\LDasm.h">
+      <Filter>Hooktest</Filter>
+    </ClInclude>
+    <ClInclude Include="HookTest\Toolhelp.h">
+      <Filter>Hooktest</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -53,14 +68,17 @@
     <ClCompile Include="libScanHook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="APIHook\APIHook.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="libdasm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="APIHook\HookApi.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="HookTest\APIHook.cpp">
+      <Filter>Hooktest</Filter>
+    </ClCompile>
+    <ClCompile Include="HookTest\HookTest.cpp">
+      <Filter>Hooktest</Filter>
+    </ClCompile>
+    <ClCompile Include="HookTest\inlinehook.cpp">
+      <Filter>Hooktest</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
