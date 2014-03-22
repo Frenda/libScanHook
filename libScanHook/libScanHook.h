@@ -59,7 +59,7 @@ namespace libScanHook
 		bool ScanIatHook();
 
 	private:
-		bool IsRedirction, IsFromRedirction;
+		bool IsFromIat, IsFromEat;
 		HANDLE hProcess;
 		DWORD MajorVersion, MinorVersion;
 		DWORD *ApiSetMapHead;
