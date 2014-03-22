@@ -88,22 +88,22 @@ namespace libScanHook
 							Info.HookAddress = Instr.op1.displacement;
 						if (Instr.length == 5)
 							Info.HookAddress = Dest + Index + Instr.op1.displacement;
+						IsHook = 1;
 						break;
 					}
 					case INSTRUCTION_TYPE_PUSH:
 					{
 						InstrLen = get_instruction(&Instr2, (BYTE *)(Dest + Index + InstrLen), MODE_32);
 						if (Instr2.type == INSTRUCTION_TYPE_RET)
+						{
 							Info.HookAddress = Instr.op1.displacement;
+							IsHook = 1;
+						}
 						break;
 					}
 					default:
-					{
-						Info.HookAddress = 0;
 						break;
 					}
-					}
-					IsHook = 1;
 					break;
 				}
 			}
@@ -579,14 +579,11 @@ namespace libScanHook
 		PIMAGE_SECTION_HEADER Section;
 		SectionNum = PeHead->FileHeader.NumberOfSections;
 		Section = IMAGE_FIRST_SECTION(PeHead);
-		for (int i = 0; i < SectionNum; i++)
+		for (int i = 0; i < SectionNum; ++i)
 		{
 			if ((Section->VirtualAddress <= Rva) && (Rva < (Section->SizeOfRawData + Section->VirtualAddress)))
-			{
-				//Offset = Rva - Section->VirtualAddress + Section->PointerToRawData;
 				return 0;
-			}
-			Section++;
+			++Section;
 		}
 		return 1;
 	}
