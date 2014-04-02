@@ -14,7 +14,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	ScanHook Scan;
 	PROCESS_HOOK_INFO HookInfo;
 	//TestHook();
-	if (Scan.InitScan(1072))
+	if (Scan.InitScan(1176))
 	{
 		while (Scan.GetProcessHookInfo(&HookInfo))
 		{

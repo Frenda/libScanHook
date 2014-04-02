@@ -57,6 +57,8 @@ namespace libScanHook
 		bool ScanInlineHook(char *ApiName, DWORD Address);
 		bool ScanEatHook();
 		bool ScanIatHook();
+		void AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, WCHAR *HookedModule);
+		void AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, char *HookedModule);
 
 	private:
 		bool IsFromIat, IsFromEat;
@@ -84,5 +86,6 @@ namespace libScanHook
 		bool GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter);
 		void GetModulePath(DWORD Address, WCHAR *ModulePath);
 		void GetModulePathByAddress(DWORD Address, WCHAR *ModulePath);
+		DWORD FindDosHeadInMemory(DWORD Address);
 	};
 }

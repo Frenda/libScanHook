@@ -66,11 +66,9 @@ namespace libScanHook
 	bool ScanHook::ScanInlineHook(char *ApiName, DWORD Address)
 	{
 		bool ret = 0, IsHook = 0;
-		DWORD Dest, Src, Index, InstrLen;
+		DWORD Dest, Src, Index, InstrLen, HookAddress;
 		vector<MODULE_INFO>::iterator iter;
 		INSTRUCTION Instr, Instr2;
-		PROCESS_HOOK_INFO Info;
-		memset(&Info, 0, sizeof(PROCESS_HOOK_INFO));
 		if (GetModuleInfomation(Address, iter))
 		{
 			Dest = Address - iter->DllBase + (DWORD)iter->ScanBuffer;
@@ -85,9 +83,9 @@ namespace libScanHook
 					case INSTRUCTION_TYPE_JMP:
 					{
 						if (Instr.length == 7)
-							Info.HookAddress = Instr.op1.displacement;
+							HookAddress = Instr.op1.displacement;
 						if (Instr.length == 5)
-							Info.HookAddress = Dest + Index + Instr.op1.displacement;
+							HookAddress = Dest + Index + Instr.op1.displacement;
 						IsHook = 1;
 						break;
 					}
@@ -96,7 +94,7 @@ namespace libScanHook
 						InstrLen = get_instruction(&Instr2, (BYTE *)(Dest + Index + InstrLen), MODE_32);
 						if (Instr2.type == INSTRUCTION_TYPE_RET)
 						{
-							Info.HookAddress = Instr.op1.displacement;
+							HookAddress = Instr.op1.displacement;
 							IsHook = 1;
 						}
 						break;
@@ -108,14 +106,7 @@ namespace libScanHook
 				}
 			}
 			if (IsHook)
-			{
-				Info.HookType = InlineHook;
-				Info.OriginalAddress = Address;
-				MultiByteToWideChar(CP_ACP, 0, ApiName, strlen(ApiName) + 1, Info.HookedApiName, 128);
-				wcscpy_s(Info.HookedModule, 64, ModuleInfoiter->BaseName);
-				GetModulePathByAddress(Info.HookAddress, Info.HookLocation);
-				HookInfo.push_back(Info);
-			}
+				AddHookInfoToList(InlineHook, Address, HookAddress, ApiName, ModuleInfoiter->BaseName);
 		}
 		return ret;
 	}
@@ -129,10 +120,8 @@ namespace libScanHook
 		DWORD i, ApiAddress, OriApiAddress, Tem;
 		DWORD *Ent, *Eat, *OriEat;
 		PE_INFO Pe, OrigPe;
-		PROCESS_HOOK_INFO Info;
 		vector<MODULE_INFO>::iterator iter;
 		PIMAGE_EXPORT_DIRECTORY ExporTable, OrigExportTable;
-		memset(&Info, 0, sizeof(PROCESS_HOOK_INFO));
 		if (ParsePe((DWORD)ModuleInfoiter->ScanBuffer, &Pe) && ParsePe((DWORD)ModuleInfoiter->OrigBuffer, &OrigPe))
 		{
 			if (Pe.ExportSize)
@@ -155,15 +144,7 @@ namespace libScanHook
 						OriApiAddress = FileNameRedirection(ModuleInfoiter->DllBase, (char *)Tem);
 					ScanInlineHook(ApiName, OriApiAddress);
 					if (Eat[NameOrd[i]] != OriEat[NameOrd[i]])
-					{
-						Info.HookType = EatHook;
-						Info.OriginalAddress = OriApiAddress;
-						Info.HookAddress = ApiAddress;
-						MultiByteToWideChar(CP_ACP, 0, ApiName, strlen(ApiName) + 1, Info.HookedApiName, 128);
-						wcscpy_s(Info.HookedModule, 64, ModuleInfoiter->BaseName);
-						GetModulePathByAddress(ApiAddress, Info.HookLocation);
-						HookInfo.push_back(Info);
-					}
+						AddHookInfoToList(EatHook, OriApiAddress, ApiAddress, ApiName, ModuleInfoiter->BaseName);
 				}
 				ret = 1;
 			}
@@ -182,9 +163,7 @@ namespace libScanHook
 		PIMAGE_THUNK_DATA FirstThunk, OriThunk;
 		PIMAGE_IMPORT_BY_NAME ByName;
 		PE_INFO Pe;
-		PROCESS_HOOK_INFO Info;
 		PIMAGE_IMPORT_DESCRIPTOR ImportTable;
-		memset(&Info, 0, sizeof(PROCESS_HOOK_INFO));
 		if (ParsePe((DWORD)ModuleInfoiter->ScanBuffer, &Pe))
 		{
 			if (Pe.ImportSize)
@@ -215,16 +194,10 @@ namespace libScanHook
 							}
 							if (OriApiAddress && (ApiAddress != OriApiAddress))
 							{
-								Info.HookType = IatHook;
-								Info.OriginalAddress = OriApiAddress;
-								Info.HookAddress = ApiAddress;
-								MultiByteToWideChar(CP_ACP, 0, ApiName, strlen(ApiName) + 1, Info.HookedApiName, 128);
 								if (IsApiSet)
-									wcscpy_s(Info.HookedModule, 64, RealDllName);
+									AddHookInfoToList(IatHook, OriApiAddress, ApiAddress, ApiName, RealDllName);
 								else
-									MultiByteToWideChar(CP_ACP, 0, DllName, strlen(DllName) + 1, Info.HookedModule, 64);
-								GetModulePathByAddress(ApiAddress, Info.HookLocation);
-								HookInfo.push_back(Info);
+									AddHookInfoToList(IatHook, OriApiAddress, ApiAddress, ApiName, DllName);
 							}
 							++OriThunk;
 							++FirstThunk;
@@ -235,6 +208,40 @@ namespace libScanHook
 			}
 		}
 		return ret;
+	}
+
+	void ScanHook::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, WCHAR *HookedModule)
+	{
+		PROCESS_HOOK_INFO Info;
+		memset(&Info, 0, sizeof(PROCESS_HOOK_INFO));
+		__try
+		{
+			Info.HookType = HookType;
+			Info.OriginalAddress = OriginalAddress;
+			Info.HookAddress = HookAddress;
+			MultiByteToWideChar(CP_ACP, 0, HookedApiName, strlen(HookedApiName) + 1, Info.HookedApiName, 128);
+			wcscpy_s(Info.HookedModule, 64, HookedModule);
+			GetModulePathByAddress(HookAddress, Info.HookLocation);
+			HookInfo.push_back(Info);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return;
+		}
+	}
+
+	void ScanHook::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, char *HookedModule)
+	{
+		WCHAR NameBuffer[64];
+		__try
+		{
+			MultiByteToWideChar(CP_ACP, 0, HookedModule, strlen(HookedModule) + 1, NameBuffer, 64);
+			AddHookInfoToList(HookType, OriginalAddress, HookAddress, HookedApiName, NameBuffer);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return;
+		}
 	}
 
 	bool  ScanHook::ElevatedPriv()
@@ -287,11 +294,9 @@ namespace libScanHook
 			Peb = BaseInfo.PebBaseAddress;
 			__try
 			{
-				ReadProcessMemory(hProcess, (void *)(Peb + 0xc), &LdrData, 4, 0);
-				{
-					ReadProcessMemory(hProcess, &(LdrData->InLoadOrderModuleList), &LdrTable, 4, 0);
-					{
-						ReadProcessMemory(hProcess, LdrTable, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
+				if (ReadProcessMemory(hProcess, (void *)(Peb + 0xc), &LdrData, 4, 0))
+					if (ReadProcessMemory(hProcess, &(LdrData->InLoadOrderModuleList), &LdrTable, 4, 0))
+						if (ReadProcessMemory(hProcess, LdrTable, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0))
 						{
 							EndLdrTable = LdrTable;
 							do
@@ -312,8 +317,6 @@ namespace libScanHook
 							} while (LdrTable != EndLdrTable);
 							ret = 1;
 						}
-					}
-				}
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -896,24 +899,16 @@ namespace libScanHook
 	bool ScanHook::GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter)
 	{
 		bool ret = 0;
-		DWORD Buffer;
-		Address &= 0xFFFF0000;
-		while (Address)
+		Address = FindDosHeadInMemory(Address);
+		if (Address)
 		{
-			if (ReadProcessMemory(hProcess, (void *)Address, &Buffer, 4, 0))
-				if ((WORD)Buffer == IMAGE_DOS_SIGNATURE)
-					if (ReadProcessMemory(hProcess, (void *)(Address + 0x3C), &Buffer, 4, 0))
-						if (ReadProcessMemory(hProcess, (void *)(Buffer + Address), &Buffer, 4, 0))
-							if (Buffer == IMAGE_NT_SIGNATURE)
-								break;
-			Address -= 0x10000;
-		}
-		for (iter = ModuleInfo.begin(); iter != ModuleInfo.end(); ++iter)
-		{
-			if (Address == iter->DllBase)
+			for (iter = ModuleInfo.begin(); iter != ModuleInfo.end(); ++iter)
 			{
-				ret = 1;
-				break;
+				if (Address == iter->DllBase)
+				{
+					ret = 1;
+					break;
+				}
 			}
 		}
 		return ret;
@@ -931,31 +926,39 @@ namespace libScanHook
 
 	void ScanHook::GetModulePathByAddress(DWORD Address, WCHAR *ModulePath)
 	{
-		DWORD Buffer;
+		Address = FindDosHeadInMemory(Address);
+		if (Address)
+			GetModulePath(Address, ModulePath);
+	}
+
+	DWORD ScanHook::FindDosHeadInMemory(DWORD Address)
+	{
+		DWORD Buffer, Tem;
+		Tem = Address;
 		if (Address)
 		{
-			memset(ModulePath, 0, 260);
-			Address &= 0xFFFF0000;
-			while (Address)
+			Tem &= 0xFFFF0000;
+			__try
 			{
-				__try
+				while (Tem)
 				{
-					if (ReadProcessMemory(hProcess, (void *)Address, &Buffer, 4, 0))
+					if (ReadProcessMemory(hProcess, (void *)Tem, &Buffer, sizeof(void *), 0))
 						if ((WORD)Buffer == IMAGE_DOS_SIGNATURE)
-							if (ReadProcessMemory(hProcess, (void *)(Address + 0x3C), &Buffer, 4, 0))
-								if (ReadProcessMemory(hProcess, (void *)(Buffer + Address), &Buffer, 4, 0))
+							if (ReadProcessMemory(hProcess, (void *)(Tem + 0x3C), &Buffer, sizeof(void *), 0))
+								if (ReadProcessMemory(hProcess, (void *)(Buffer + Tem), &Buffer, sizeof(void *), 0))
 									if (Buffer == IMAGE_NT_SIGNATURE)
+									{
+										Address = Tem;
 										break;
-					Address -= 0x10000;
-				}
-				__except (EXCEPTION_EXECUTE_HANDLER)
-				{
-					Address = 0;
-					break;
+									}
+					Tem -= 0x10000;
 				}
 			}
-			if (Address)
-				GetModulePath(Address, ModulePath);
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				Address = 0;
+			}
 		}
+		return Address;
 	}
 }
