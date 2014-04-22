@@ -5,7 +5,6 @@
 #include<iostream>
 #include<iomanip>
 #include "libScanHook.h"
-#include "HookTest\HookTest.h"
 using namespace std;
 using namespace libScanHook;
 
@@ -13,8 +12,10 @@ int _tmain(int argc, _TCHAR* argv[])
 {
 	ScanHook Scan;
 	PROCESS_HOOK_INFO HookInfo;
-	//TestHook();
-	if (Scan.InitScan(1176))
+	DWORD Pid;
+	cout << "ÊäÈëPID: ";
+	cin >> Pid;
+	if (Scan.InitScan(Pid))
 	{
 		while (Scan.GetProcessHookInfo(&HookInfo))
 		{

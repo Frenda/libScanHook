@@ -72,14 +72,15 @@ namespace libScanHook
 		bool ElevatedPriv();
 		bool QuerySystemInfo();
 		bool QueryModuleInfo();
-		bool PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize, DWORD DllBase);
+		bool PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize);
 		bool FixBaseRelocTable(DWORD NewImageBase, DWORD ExistImageBase);
 		PIMAGE_BASE_RELOCATION ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff);
 		bool IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva);
 		bool ParsePe(DWORD ImageBase, PPE_INFO PeInfo);
+		UINT AlignSize(UINT Size, UINT Align);
 		DWORD GetExportByOrdinal(DWORD ImageBase, WORD Ordinal);
 		DWORD GetExportByName(DWORD ImageBase, char *ProcName);
-		DWORD FileNameRedirection(DWORD ImageBase, char *RedirectionName);
+		DWORD FileNameRedirection(char *RedirectionName);
 		bool ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size);
 		DWORD MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
 		bool GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter);

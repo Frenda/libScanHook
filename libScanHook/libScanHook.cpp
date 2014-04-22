@@ -114,9 +114,10 @@ namespace libScanHook
 
 	bool ScanHook::ScanEatHook()
 	{
-		bool ret = 0, IsDllRedirection = 0;
+		bool ret = 0;
 		char *ApiName;
 		WORD *NameOrd;
+		DWORD tem, tem1;
 		DWORD i, ApiAddress, OriApiAddress, Tem;
 		DWORD *Ent, *Eat, *OriEat;
 		PE_INFO Pe, OrigPe;
@@ -136,14 +137,16 @@ namespace libScanHook
 				{
 					if (IsGlobalVar(OrigPe.PeHead, OriEat[NameOrd[i]]))
 						continue;
+					tem = Eat[NameOrd[i]];
+					tem1 = OriEat[NameOrd[i]];
 					ApiName = (char *)(Ent[i] + (DWORD)ModuleInfoiter->OrigBuffer);
 					ApiAddress = Eat[NameOrd[i]] + ModuleInfoiter->DllBase;
 					OriApiAddress = OriEat[NameOrd[i]] + ModuleInfoiter->DllBase;
 					Tem = OriEat[NameOrd[i]] + (DWORD)ModuleInfoiter->OrigBuffer;
 					if (Tem >= (DWORD)OrigExportTable && Tem < ((DWORD)OrigExportTable + Pe.ExportSize))
-						OriApiAddress = FileNameRedirection(ModuleInfoiter->DllBase, (char *)Tem);
+						OriApiAddress = FileNameRedirection((char *)Tem);
 					ScanInlineHook(ApiName, OriApiAddress);
-					if (Eat[NameOrd[i]] != OriEat[NameOrd[i]])
+					if ((Eat[NameOrd[i]] != OriEat[NameOrd[i]]) && (OriApiAddress != ApiAddress))
 						AddHookInfoToList(EatHook, OriApiAddress, ApiAddress, ApiName, ModuleInfoiter->BaseName);
 				}
 				ret = 1;
@@ -295,7 +298,9 @@ namespace libScanHook
 			__try
 			{
 				if (ReadProcessMemory(hProcess, (void *)(Peb + 0xc), &LdrData, 4, 0))
+				{
 					if (ReadProcessMemory(hProcess, &(LdrData->InLoadOrderModuleList), &LdrTable, 4, 0))
+					{
 						if (ReadProcessMemory(hProcess, LdrTable, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0))
 						{
 							EndLdrTable = LdrTable;
@@ -310,13 +315,15 @@ namespace libScanHook
 								Info.ScanBuffer = new BYTE[Buffer.SizeOfImage];
 								ReadProcessMemory(hProcess, Buffer.DllBase, Info.ScanBuffer, Buffer.SizeOfImage, 0);
 								Info.OrigBuffer = new BYTE[Buffer.SizeOfImage];
-								PeLoader(Info.FullName, Info.OrigBuffer, Buffer.SizeOfImage, (DWORD)Buffer.DllBase);
+								PeLoader(Info.FullName, (DWORD)Buffer.DllBase, Info.OrigBuffer, Buffer.SizeOfImage);
 								ModuleInfo.push_back(Info);
 								ReadProcessMemory(hProcess, Buffer.InLoadOrderLinks.Flink, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
 								LdrTable = (PNT_LDR_DATA_TABLE_ENTRY)(Buffer.InLoadOrderLinks.Flink);
 							} while (LdrTable != EndLdrTable);
 							ret = 1;
 						}
+					}
+				}
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -326,42 +333,49 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::PeLoader(WCHAR *FilePath, void *BaseAddress, DWORD BufferSize, DWORD DllBase)
+	bool ScanHook::PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize)
 	{
 		bool ret = 0;
-		void *Buffer;
-		DWORD SectionNum, HeadSize, DateSize;
+		void *FileBuffer;
+		DWORD SectionNum, HeaderSize, DateSize, FileAlignment, SectionAlignment, i;
 		HANDLE hFile;
 		PE_INFO Pe;
 		PIMAGE_SECTION_HEADER SectionHead;
-		if (BaseAddress)
+		if (Buffer)
 		{
 			hFile = CreateFile(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
 			if (hFile != INVALID_HANDLE_VALUE)
 			{
-				Buffer = new BYTE[BufferSize];
-				if (Buffer)
+				FileBuffer = new BYTE[BufferSize];
+				if (FileBuffer)
 				{
-					if (ReadFile(hFile, Buffer, BufferSize, 0, 0))
+					if (ReadFile(hFile, FileBuffer, BufferSize, 0, 0))
 					{
-						ParsePe((DWORD)Buffer, &Pe);
+						ParsePe((DWORD)FileBuffer, &Pe);
 						SectionHead = IMAGE_FIRST_SECTION(Pe.PeHead);
 						SectionNum = Pe.PeHead->FileHeader.NumberOfSections;
-						HeadSize = Pe.PeHead->OptionalHeader.SizeOfHeaders;
-						memset(BaseAddress, 0, BufferSize);
-						memcpy(BaseAddress, Buffer, HeadSize);
-						for (DWORD i = 0; i < SectionNum; i++)
+						HeaderSize = Pe.PeHead->OptionalHeader.SizeOfHeaders;
+						FileAlignment = Pe.PeHead->OptionalHeader.FileAlignment;
+						SectionAlignment = Pe.PeHead->OptionalHeader.SectionAlignment;
+						memset(Buffer, 0, BufferSize);
+						memcpy(Buffer, FileBuffer, HeaderSize);
+						for (i = 0; i < SectionNum; ++i)
+						{
+							SectionHead[i].SizeOfRawData = AlignSize(SectionHead[i].SizeOfRawData, FileAlignment);
+							SectionHead[i].Misc.VirtualSize = AlignSize(SectionHead[i].Misc.VirtualSize, SectionAlignment);
+						}
+						if (SectionHead[SectionNum - 1].VirtualAddress + SectionHead[SectionNum - 1].SizeOfRawData > BufferSize)
+							SectionHead[SectionNum - 1].SizeOfRawData = BufferSize - SectionHead[SectionNum - 1].VirtualAddress;
+						for (i = 0; i < SectionNum; ++i)
 						{
 							DateSize = SectionHead[i].SizeOfRawData;
-							if (DateSize > SectionHead[i].Misc.VirtualSize)
-								DateSize = SectionHead[i].Misc.VirtualSize;
-							memcpy((void *)((DWORD)BaseAddress + SectionHead[i].VirtualAddress),
-								(void *)((DWORD)Buffer + SectionHead[i].PointerToRawData), DateSize);
+							memcpy((void *)((DWORD)Buffer + SectionHead[i].VirtualAddress),
+								(void *)((DWORD)FileBuffer + SectionHead[i].PointerToRawData), DateSize);
 						}
-						FixBaseRelocTable((DWORD)BaseAddress, DllBase);
+						FixBaseRelocTable((DWORD)Buffer, DllBase);
 						ret = 1;
 					}
-					delete[] Buffer;
+					delete[] FileBuffer;
 				}
 				CloseHandle(hFile);
 			}
@@ -369,13 +383,17 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::FixBaseRelocTable(DWORD NewImageBase, DWORD ExistImageBase)
+	UINT ScanHook::AlignSize(UINT Size, UINT Align)
+	{
+		return ((Size + Align - 1) / Align * Align);
+	}
+
+	bool ScanHook::FixBaseRelocTable(ULONG_PTR NewImageBase, ULONG_PTR ExistImageBase)
 	{
 		LONGLONG Diff;
-		ULONG TotalCountBytes = 0;
+		ULONG TotalCountBytes, SizeOfBlock;
 		ULONG_PTR VA;
 		ULONGLONG OriginalImageBase;
-		ULONG SizeOfBlock;
 		PUSHORT NextOffset = 0;
 		PE_INFO Pe;
 		PIMAGE_BASE_RELOCATION NextBlock;
@@ -399,7 +417,7 @@ namespace libScanHook
 		}
 		NextBlock = (PIMAGE_BASE_RELOCATION)(NewImageBase +
 			Pe.PeHead->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-		TotalCountBytes = (NewImageBase + Pe.PeHead->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size);
+		TotalCountBytes = Pe.PeHead->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
 		if (!NextBlock || !TotalCountBytes)
 		{
 			if (Pe.PeHead->FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED)
@@ -407,7 +425,7 @@ namespace libScanHook
 			else
 				return 1;
 		}
-		Diff = (ULONG_PTR)ExistImageBase - OriginalImageBase;
+		Diff = ExistImageBase - OriginalImageBase;
 		while (TotalCountBytes)
 		{
 			SizeOfBlock = NextBlock->SizeOfBlock;
@@ -415,7 +433,7 @@ namespace libScanHook
 			SizeOfBlock -= sizeof(IMAGE_BASE_RELOCATION);
 			SizeOfBlock /= sizeof(USHORT);
 			NextOffset = (PUSHORT)((PCHAR)NextBlock + sizeof(IMAGE_BASE_RELOCATION));
-			VA = (ULONG_PTR)NewImageBase + NextBlock->VirtualAddress;
+			VA = NewImageBase + NextBlock->VirtualAddress;
 			NextBlock = ProcessRelocationBlock(VA, SizeOfBlock, NextOffset, Diff);
 			if (!NextBlock)
 				return 0;
@@ -429,11 +447,11 @@ namespace libScanHook
 		USHORT Offset;
 		LONG Temp;
 		ULONGLONG Value64;
-		while (SizeOfBlock--) 
+		while (SizeOfBlock--)
 		{
 			Offset = *NextOffset & (USHORT)0xfff;
 			FixupVA = (PUCHAR)(VA + Offset);
-			switch ((*NextOffset) >> 12) 
+			switch ((*NextOffset) >> 12)
 			{
 			case IMAGE_REL_BASED_HIGHLOW:
 			{
@@ -570,7 +588,7 @@ namespace libScanHook
 				*(PULONG)FixupVA = (*(PULONG)FixupVA & ~0x3ffffff) | ((Temp >> 2) & 0x3ffffff);
 				break;
 			}
-			case IMAGE_REL_BASED_ABSOLUTE: 
+			case IMAGE_REL_BASED_ABSOLUTE:
 				break;
 			default:
 				return (PIMAGE_BASE_RELOCATION)NULL;
@@ -634,7 +652,7 @@ namespace libScanHook
 			ApiAddress = ((Eat[Ordinal - ExportTable->Base] != 0) ? (ImageBase + Eat[Ordinal - ExportTable->Base]) : 0);
 			if ((ApiAddress >= (DWORD)ExportTable) && (ApiAddress < ((DWORD)ExportTable + Pe.ExportSize)))
 			{
-				ApiAddress = FileNameRedirection(ImageBase, (char *)ApiAddress);
+				ApiAddress = FileNameRedirection((char *)ApiAddress);
 				IsFromIat = 1;
 			}
 		}
@@ -686,7 +704,7 @@ namespace libScanHook
 				ApiAddress = (ImageBase + Eat[Ordinal]);
 				if (ApiAddress >= (DWORD)ExportTable && (ApiAddress < ((DWORD)ExportTable + Pe.ExportSize)))
 				{
-					ApiAddress = FileNameRedirection(ImageBase, (char *)ApiAddress);
+					ApiAddress = FileNameRedirection((char *)ApiAddress);
 					IsFromIat = 1;
 				}
 			}
@@ -698,7 +716,7 @@ namespace libScanHook
 		return ApiAddress;
 	}
 
-	DWORD ScanHook::FileNameRedirection(DWORD ImageBase, char *RedirectionName)
+	DWORD ScanHook::FileNameRedirection( char *RedirectionName)
 	{
 		char *ptr, *ProcName;
 		char Buffer[128];
@@ -747,7 +765,7 @@ namespace libScanHook
 		bool ret = 0;
 		WCHAR *NameBuffer, *ptr;
 		WCHAR LibName[64];
-		DWORD ApiAddress = 0, LibNameSize, HostNameSize;
+		DWORD LibNameSize, HostNameSize;
 		DWORD *Version;;
 		PNT_API_SET_NAMESPACE_ARRAY_V2 SetMapHead_v2;
 		PNT_API_SET_VALUE_ARRAY_V2 SetMapHost_v2;
@@ -943,14 +961,22 @@ namespace libScanHook
 				while (Tem)
 				{
 					if (ReadProcessMemory(hProcess, (void *)Tem, &Buffer, sizeof(void *), 0))
+					{
 						if ((WORD)Buffer == IMAGE_DOS_SIGNATURE)
+						{
 							if (ReadProcessMemory(hProcess, (void *)(Tem + 0x3C), &Buffer, sizeof(void *), 0))
+							{
 								if (ReadProcessMemory(hProcess, (void *)(Buffer + Tem), &Buffer, sizeof(void *), 0))
+								{
 									if (Buffer == IMAGE_NT_SIGNATURE)
 									{
 										Address = Tem;
 										break;
 									}
+								}
+							}
+						}
+					}
 					Tem -= 0x10000;
 				}
 			}
