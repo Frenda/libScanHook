@@ -40,8 +40,8 @@ namespace libScanHook
 			DWORD SizeOfImage;
 			WCHAR FullName[260];
 			WCHAR BaseName[64];
-			void *ScanBuffer;
-			void *OrigBuffer;
+			void *MemoryImage;
+			void *DiskImage;
 		} MODULE_INFO;
 
 		typedef struct _PE_INFO
@@ -61,10 +61,10 @@ namespace libScanHook
 		void AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, char *HookedModule);
 
 	private:
-		bool IsFromIat, IsFromEat;
-		HANDLE hProcess;
-		DWORD MajorVersion, MinorVersion;
-		DWORD *ApiSetMapHead;
+		bool m_IsFromIat, m_IsFromEat;
+		HANDLE m_hProcess;
+		DWORD m_MajorVersion, m_MinorVersion;
+		DWORD *m_ApiSetMapHead;
 		vector<MODULE_INFO> ModuleInfo;
 		vector<MODULE_INFO>::iterator ModuleInfoiter;
 		vector<PROCESS_HOOK_INFO> HookInfo;
@@ -72,6 +72,8 @@ namespace libScanHook
 		bool ElevatedPriv();
 		bool QuerySystemInfo();
 		bool QueryModuleInfo();
+		bool ReadMemoryImage();
+		void FreeMemoryImage();
 		bool PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize);
 		bool FixBaseRelocTable(DWORD NewImageBase, DWORD ExistImageBase);
 		PIMAGE_BASE_RELOCATION ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff);
