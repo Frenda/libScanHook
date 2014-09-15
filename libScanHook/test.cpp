@@ -10,7 +10,7 @@ using namespace libScanHook;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	ScanHook Scan;
+	SCANHOOK Scan;
 	PROCESS_HOOK_INFO HookInfo;
 	DWORD Pid;
 	cout << "ÊäÈëPID: ";
@@ -45,7 +45,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			cout << endl;
 		}
 	}
-	Scan.CloseScan();
+	//Scan.CloseScan();
 	system("pause");
 	return 0;
 }

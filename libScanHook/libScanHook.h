@@ -25,12 +25,13 @@ typedef struct _PROCESS_HOOK_INFO
 
 namespace libScanHook
 {
-	class ScanHook
+	class SCANHOOK
 	{
 	public:
-		ScanHook();
+		SCANHOOK();
+		~SCANHOOK();
 		bool InitScan(DWORD Pid);
-		void CloseScan();
+		//void CloseScan();
 		bool GetProcessHookInfo(PPROCESS_HOOK_INFO Entry);
 
 	private:

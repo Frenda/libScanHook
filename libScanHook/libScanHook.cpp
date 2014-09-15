@@ -2,14 +2,25 @@
 
 namespace libScanHook
 {
-	ScanHook::ScanHook()
+	SCANHOOK::SCANHOOK()
 	{
 		m_IsFromIat = 0;
 		m_IsFromEat = 0;
 		ElevatedPriv();
 	}
 
-	bool ScanHook::InitScan(DWORD Pid)
+	SCANHOOK::~SCANHOOK()
+	{
+		for (ModuleInfoiter = ModuleInfo.begin(); ModuleInfoiter != ModuleInfo.end(); ++ModuleInfoiter)
+		{
+			if (ModuleInfoiter->DiskImage)
+				delete[] ModuleInfoiter->DiskImage;
+		}
+		ModuleInfo.clear();
+		HookInfo.clear();
+	}
+
+	bool SCANHOOK::InitScan(DWORD Pid)
 	{
 		bool ret = 0;
 		if (QuerySystemInfo())
@@ -37,7 +48,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	void ScanHook::CloseScan()
+	/*void SCANHOOK::CloseScan()
 	{
 		for (ModuleInfoiter = ModuleInfo.begin(); ModuleInfoiter != ModuleInfo.end(); ++ModuleInfoiter)
 		{
@@ -46,9 +57,9 @@ namespace libScanHook
 		}
 		ModuleInfo.clear();
 		HookInfo.clear();
-	}
+	}*/
 
-	bool ScanHook::GetProcessHookInfo(PPROCESS_HOOK_INFO Entry)
+	bool SCANHOOK::GetProcessHookInfo(PPROCESS_HOOK_INFO Entry)
 	{
 		bool ret = 0;
 		if (HookInfoiter != HookInfo.end())
@@ -65,7 +76,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::ScanInlineHook(char *ApiName, DWORD Address)
+	bool SCANHOOK::ScanInlineHook(char *ApiName, DWORD Address)
 	{
 		bool ret = 0, IsHook = 0;
 		DWORD Dest, Src, Index, InstrLen, HookAddress = 0;
@@ -114,7 +125,7 @@ namespace libScanHook
 	}
 
 
-	bool ScanHook::ScanEatHook()
+	bool SCANHOOK::ScanEatHook()
 	{
 		bool ret = 0;
 		char *ApiName;
@@ -158,7 +169,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::ScanIatHook()
+	bool SCANHOOK::ScanIatHook()
 	{
 		bool ret = 0, IsApiSet;
 		char *DllName, *ApiName;
@@ -216,7 +227,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	void ScanHook::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, WCHAR *HookedModule)
+	void SCANHOOK::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, WCHAR *HookedModule)
 	{
 		PROCESS_HOOK_INFO Info;
 		memset(&Info, 0, sizeof(PROCESS_HOOK_INFO));
@@ -236,7 +247,7 @@ namespace libScanHook
 		}
 	}
 
-	void ScanHook::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, char *HookedModule)
+	void SCANHOOK::AddHookInfoToList(DWORD HookType, DWORD OriginalAddress, DWORD HookAddress, char *HookedApiName, char *HookedModule)
 	{
 		WCHAR NameBuffer[64];
 		__try
@@ -250,7 +261,7 @@ namespace libScanHook
 		}
 	}
 
-	bool  ScanHook::ElevatedPriv()
+	bool  SCANHOOK::ElevatedPriv()
 	{
 		HANDLE hToken;
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
@@ -269,7 +280,7 @@ namespace libScanHook
 		return 1;
 	}
 
-	bool ScanHook::QuerySystemInfo()
+	bool SCANHOOK::QuerySystemInfo()
 	{
 		bool ret = 0;
 		PNT_PEB Peb;
@@ -286,7 +297,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::QueryModuleInfo()
+	bool SCANHOOK::QueryModuleInfo()
 	{
 		bool ret = 0;
 		DWORD Peb;
@@ -333,7 +344,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::ReadMemoryImage()
+	bool SCANHOOK::ReadMemoryImage()
 	{
 		bool ret = 0;
 		ModuleInfoiter->MemoryImage = new BYTE[ModuleInfoiter->SizeOfImage];
@@ -345,7 +356,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	void ScanHook::FreeMemoryImage()
+	void SCANHOOK::FreeMemoryImage()
 	{
 		if (ModuleInfoiter->MemoryImage)
 		{
@@ -354,7 +365,7 @@ namespace libScanHook
 		}
 	}
 
-	bool ScanHook::PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize)
+	bool SCANHOOK::PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize)
 	{
 		bool ret = 0;
 		void *FileBuffer;
@@ -404,12 +415,12 @@ namespace libScanHook
 		return ret;
 	}
 
-	UINT ScanHook::AlignSize(UINT Size, UINT Align)
+	UINT SCANHOOK::AlignSize(UINT Size, UINT Align)
 	{
 		return ((Size + Align - 1) / Align * Align);
 	}
 
-	bool ScanHook::FixBaseRelocTable(ULONG_PTR NewImageBase, ULONG_PTR ExistImageBase)
+	bool SCANHOOK::FixBaseRelocTable(ULONG_PTR NewImageBase, ULONG_PTR ExistImageBase)
 	{
 		LONGLONG Diff;
 		ULONG TotalCountBytes, SizeOfBlock;
@@ -462,7 +473,7 @@ namespace libScanHook
 		return 1;
 	}
 
-	PIMAGE_BASE_RELOCATION ScanHook::ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff)
+	PIMAGE_BASE_RELOCATION SCANHOOK::ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff)
 	{
 		PUCHAR FixupVA;
 		USHORT Offset;
@@ -619,7 +630,7 @@ namespace libScanHook
 		return (PIMAGE_BASE_RELOCATION)NextOffset;
 	}
 
-	bool ScanHook::IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva)
+	bool SCANHOOK::IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva)
 	{
 		WORD SectionNum;
 		PIMAGE_SECTION_HEADER Section;
@@ -634,7 +645,7 @@ namespace libScanHook
 		return 1;
 	}
 
-	bool ScanHook::ParsePe(DWORD ImageBase, PPE_INFO Pe)
+	bool SCANHOOK::ParsePe(DWORD ImageBase, PPE_INFO Pe)
 	{
 		bool ret = 0;
 		PIMAGE_DOS_HEADER DosHead;
@@ -659,7 +670,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	DWORD ScanHook::GetExportByOrdinal(DWORD ImageBase, WORD Ordinal)
+	DWORD SCANHOOK::GetExportByOrdinal(DWORD ImageBase, WORD Ordinal)
 	{
 		DWORD ApiAddress = 0;
 		DWORD *Eat;
@@ -680,7 +691,7 @@ namespace libScanHook
 		return ApiAddress;
 	}
 
-	DWORD ScanHook::GetExportByName(DWORD ImageBase, char *ProcName)
+	DWORD SCANHOOK::GetExportByName(DWORD ImageBase, char *ProcName)
 	{
 		int cmp;
 		char *ApiName;
@@ -737,7 +748,7 @@ namespace libScanHook
 		return ApiAddress;
 	}
 
-	DWORD ScanHook::FileNameRedirection( char *RedirectionName)
+	DWORD SCANHOOK::FileNameRedirection(char *RedirectionName)
 	{
 		char *ptr, *ProcName;
 		char Buffer[128];
@@ -781,7 +792,7 @@ namespace libScanHook
 		return ApiAddress;
 	}
 
-	bool ScanHook::ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size)
+	bool SCANHOOK::ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size)
 	{
 		bool ret = 0;
 		WCHAR *NameBuffer, *ptr;
@@ -871,7 +882,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	DWORD ScanHook::MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName)
+	DWORD SCANHOOK::MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName)
 	{
 		DWORD ApiAddress = 0;
 		WCHAR NameBuffer[64], HostName[64];
@@ -919,7 +930,7 @@ namespace libScanHook
 		return ApiAddress;
 	}
 
-	bool ScanHook::GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter)
+	bool SCANHOOK::GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter)
 	{
 		bool ret = 0;
 		size_t Len;
@@ -935,7 +946,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	bool ScanHook::GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter)
+	bool SCANHOOK::GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter)
 	{
 		bool ret = 0;
 		Address = FindDosHeadInMemory(Address);
@@ -953,7 +964,7 @@ namespace libScanHook
 		return ret;
 	}
 
-	void ScanHook::GetModulePath(DWORD Address, WCHAR *ModulePath)
+	void SCANHOOK::GetModulePath(DWORD Address, WCHAR *ModulePath)
 	{
 		vector<MODULE_INFO>::iterator iter;
 		for (iter = ModuleInfo.begin(); iter != ModuleInfo.end(); ++iter)
@@ -963,14 +974,14 @@ namespace libScanHook
 		}
 	}
 
-	void ScanHook::GetModulePathByAddress(DWORD Address, WCHAR *ModulePath)
+	void SCANHOOK::GetModulePathByAddress(DWORD Address, WCHAR *ModulePath)
 	{
 		Address = FindDosHeadInMemory(Address);
 		if (Address)
 			GetModulePath(Address, ModulePath);
 	}
 
-	DWORD ScanHook::FindDosHeadInMemory(DWORD Address)
+	DWORD SCANHOOK::FindDosHeadInMemory(DWORD Address)
 	{
 		DWORD Buffer, Tem;
 		Tem = Address;
