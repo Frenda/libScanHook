@@ -1,6 +1,6 @@
 #include "libScanHook.h"
 
-namespace libScanHook
+namespace libscanhook
 {
 	SCANHOOK::SCANHOOK()
 	{
@@ -47,17 +47,6 @@ namespace libScanHook
 		}
 		return ret;
 	}
-
-	/*void SCANHOOK::CloseScan()
-	{
-		for (ModuleInfoiter = ModuleInfo.begin(); ModuleInfoiter != ModuleInfo.end(); ++ModuleInfoiter)
-		{
-			if (ModuleInfoiter->DiskImage)
-				delete[] ModuleInfoiter->DiskImage;
-		}
-		ModuleInfo.clear();
-		HookInfo.clear();
-	}*/
 
 	bool SCANHOOK::GetProcessHookInfo(PPROCESS_HOOK_INFO Entry)
 	{
@@ -133,22 +122,23 @@ namespace libScanHook
 		DWORD tem, tem1;
 		DWORD i, ApiAddress, OriApiAddress, Tem;
 		DWORD *Ent, *Eat, *OriEat;
-		PE_INFO Pe, OrigPe;
+		LIBPE Pe;
+		PE_INFO PeInfo, OrigPeInfo;
 		vector<MODULE_INFO>::iterator iter;
 		PIMAGE_EXPORT_DIRECTORY ExporTable, OrigExportTable;
-		if (ParsePe((DWORD)ModuleInfoiter->MemoryImage, &Pe) && ParsePe((DWORD)ModuleInfoiter->DiskImage, &OrigPe))
+		if (Pe.Parse((DWORD)ModuleInfoiter->MemoryImage, &PeInfo) && Pe.Parse((DWORD)ModuleInfoiter->DiskImage, &OrigPeInfo))
 		{
-			if (Pe.ExportSize)
+			if (PeInfo.ExportSize)
 			{
-				ExporTable = (PIMAGE_EXPORT_DIRECTORY)((DWORD)ModuleInfoiter->MemoryImage + Pe.ExportTableRva);
-				OrigExportTable = (PIMAGE_EXPORT_DIRECTORY)((DWORD)ModuleInfoiter->DiskImage + Pe.ExportTableRva);
+				ExporTable = (PIMAGE_EXPORT_DIRECTORY)((DWORD)ModuleInfoiter->MemoryImage + PeInfo.ExportTableRva);
+				OrigExportTable = (PIMAGE_EXPORT_DIRECTORY)((DWORD)ModuleInfoiter->DiskImage + PeInfo.ExportTableRva);
 				Eat = (DWORD *)((DWORD)ModuleInfoiter->MemoryImage + ExporTable->AddressOfFunctions);
 				Ent = (DWORD *)((DWORD)ModuleInfoiter->MemoryImage + ExporTable->AddressOfNames);
 				NameOrd = (WORD *)((DWORD)ModuleInfoiter->MemoryImage + ExporTable->AddressOfNameOrdinals);
 				OriEat = (DWORD *)((DWORD)ModuleInfoiter->DiskImage + OrigExportTable->AddressOfFunctions);
 				for (i = 0; i < ExporTable->NumberOfNames; ++i)
 				{
-					if (IsGlobalVar(OrigPe.PeHead, OriEat[NameOrd[i]]))
+					if (Pe.IsGlobalVar(OrigPeInfo.PeHead, OriEat[NameOrd[i]]))
 						continue;
 					tem = Eat[NameOrd[i]];
 					tem1 = OriEat[NameOrd[i]];
@@ -156,7 +146,7 @@ namespace libScanHook
 					ApiAddress = Eat[NameOrd[i]] + ModuleInfoiter->DllBase;
 					OriApiAddress = OriEat[NameOrd[i]] + ModuleInfoiter->DllBase;
 					Tem = OriEat[NameOrd[i]] + (DWORD)ModuleInfoiter->DiskImage;
-					if (Tem >= (DWORD)OrigExportTable && Tem < ((DWORD)OrigExportTable + Pe.ExportSize))
+					if (Tem >= (DWORD)OrigExportTable && Tem < ((DWORD)OrigExportTable + PeInfo.ExportSize))
 						OriApiAddress = FileNameRedirection((char *)Tem);
 					else
 						ScanInlineHook(ApiName, OriApiAddress);
@@ -179,13 +169,14 @@ namespace libScanHook
 		DWORD ApiAddress, OriApiAddress;
 		PIMAGE_THUNK_DATA FirstThunk, OriThunk;
 		PIMAGE_IMPORT_BY_NAME ByName;
-		PE_INFO Pe;
+		LIBPE Pe;
+		PE_INFO PeInfo;
 		PIMAGE_IMPORT_DESCRIPTOR ImportTable;
-		if (ParsePe((DWORD)ModuleInfoiter->MemoryImage, &Pe))
+		if (Pe.Parse((DWORD)ModuleInfoiter->MemoryImage, &PeInfo))
 		{
-			if (Pe.ImportSize)
+			if (PeInfo.ImportSize)
 			{
-				ImportTable = (PIMAGE_IMPORT_DESCRIPTOR)((DWORD)ModuleInfoiter->MemoryImage + Pe.ImportTableRva);
+				ImportTable = (PIMAGE_IMPORT_DESCRIPTOR)((DWORD)ModuleInfoiter->MemoryImage + PeInfo.ImportTableRva);
 				while (ImportTable->FirstThunk)
 				{
 					if (ImportTable->OriginalFirstThunk)
@@ -302,6 +293,7 @@ namespace libScanHook
 		bool ret = 0;
 		DWORD Peb;
 		MODULE_INFO Info;
+		PELOADER Ldr;
 		NT_PROCESS_BASIC_INFORMATION BaseInfo;
 		PNT_PEB_LDR_DATA LdrData;
 		NT_LDR_DATA_TABLE_ENTRY Buffer;
@@ -326,7 +318,7 @@ namespace libScanHook
 								ReadProcessMemory(m_hProcess, Buffer.FullDllName.Buffer, Info.FullName, Buffer.FullDllName.Length, 0);
 								ReadProcessMemory(m_hProcess, Buffer.BaseDllName.Buffer, Info.BaseName, Buffer.BaseDllName.Length, 0);
 								Info.DiskImage = new BYTE[Buffer.SizeOfImage];
-								PeLoader(Info.FullName, (DWORD)Buffer.DllBase, Info.DiskImage, Buffer.SizeOfImage);
+								Ldr.Loader(Info.FullName, (DWORD)Buffer.DllBase, Info.DiskImage, Buffer.SizeOfImage);
 								ModuleInfo.push_back(Info);
 								ReadProcessMemory(m_hProcess, Buffer.InLoadOrderLinks.Flink, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
 								LdrTable = (PNT_LDR_DATA_TABLE_ENTRY)(Buffer.InLoadOrderLinks.Flink);
@@ -365,324 +357,20 @@ namespace libScanHook
 		}
 	}
 
-	bool SCANHOOK::PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize)
-	{
-		bool ret = 0;
-		void *FileBuffer;
-		DWORD SectionNum, HeaderSize, DateSize, FileAlignment, SectionAlignment, i;
-		HANDLE hFile;
-		PE_INFO Pe;
-		PIMAGE_SECTION_HEADER SectionHead;
-		if (Buffer)
-		{
-			hFile = CreateFile(FilePath, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
-			if (hFile != INVALID_HANDLE_VALUE)
-			{
-				FileBuffer = new BYTE[BufferSize];
-				if (FileBuffer)
-				{
-					if (ReadFile(hFile, FileBuffer, BufferSize, 0, 0))
-					{
-						ParsePe((DWORD)FileBuffer, &Pe);
-						SectionHead = IMAGE_FIRST_SECTION(Pe.PeHead);
-						SectionNum = Pe.PeHead->FileHeader.NumberOfSections;
-						HeaderSize = Pe.PeHead->OptionalHeader.SizeOfHeaders;
-						FileAlignment = Pe.PeHead->OptionalHeader.FileAlignment;
-						SectionAlignment = Pe.PeHead->OptionalHeader.SectionAlignment;
-						memset(Buffer, 0, BufferSize);
-						memcpy(Buffer, FileBuffer, HeaderSize);
-						for (i = 0; i < SectionNum; ++i)
-						{
-							SectionHead[i].SizeOfRawData = AlignSize(SectionHead[i].SizeOfRawData, FileAlignment);
-							SectionHead[i].Misc.VirtualSize = AlignSize(SectionHead[i].Misc.VirtualSize, SectionAlignment);
-						}
-						if (SectionHead[SectionNum - 1].VirtualAddress + SectionHead[SectionNum - 1].SizeOfRawData > BufferSize)
-							SectionHead[SectionNum - 1].SizeOfRawData = BufferSize - SectionHead[SectionNum - 1].VirtualAddress;
-						for (i = 0; i < SectionNum; ++i)
-						{
-							DateSize = SectionHead[i].SizeOfRawData;
-							memcpy((void *)((DWORD)Buffer + SectionHead[i].VirtualAddress),
-								(void *)((DWORD)FileBuffer + SectionHead[i].PointerToRawData), DateSize);
-						}
-						FixBaseRelocTable((DWORD)Buffer, DllBase);
-						ret = 1;
-					}
-					delete[] FileBuffer;
-				}
-				CloseHandle(hFile);
-			}
-		}
-		return ret;
-	}
-
-	UINT SCANHOOK::AlignSize(UINT Size, UINT Align)
-	{
-		return ((Size + Align - 1) / Align * Align);
-	}
-
-	bool SCANHOOK::FixBaseRelocTable(ULONG_PTR NewImageBase, ULONG_PTR ExistImageBase)
-	{
-		LONGLONG Diff;
-		ULONG TotalCountBytes, SizeOfBlock;
-		ULONG_PTR VA;
-		ULONGLONG OriginalImageBase;
-		PUSHORT NextOffset = 0;
-		PE_INFO Pe;
-		PIMAGE_BASE_RELOCATION NextBlock;
-		ParsePe(NewImageBase, &Pe);
-		if (Pe.PeHead == 0)
-			return 0;
-		switch (Pe.PeHead->OptionalHeader.Magic)
-		{
-		case IMAGE_NT_OPTIONAL_HDR32_MAGIC:
-		{
-			OriginalImageBase = ((PIMAGE_NT_HEADERS32)Pe.PeHead)->OptionalHeader.ImageBase;
-			break;
-		}
-		case IMAGE_NT_OPTIONAL_HDR64_MAGIC:
-		{
-			OriginalImageBase = ((PIMAGE_NT_HEADERS64)Pe.PeHead)->OptionalHeader.ImageBase;
-			break;
-		}
-		default:
-			return 0;
-		}
-		NextBlock = (PIMAGE_BASE_RELOCATION)(NewImageBase +
-			Pe.PeHead->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress);
-		TotalCountBytes = Pe.PeHead->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
-		if (!NextBlock || !TotalCountBytes)
-		{
-			if (Pe.PeHead->FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED)
-				return 0;
-			else
-				return 1;
-		}
-		Diff = ExistImageBase - OriginalImageBase;
-		while (TotalCountBytes)
-		{
-			SizeOfBlock = NextBlock->SizeOfBlock;
-			TotalCountBytes -= SizeOfBlock;
-			SizeOfBlock -= sizeof(IMAGE_BASE_RELOCATION);
-			SizeOfBlock /= sizeof(USHORT);
-			NextOffset = (PUSHORT)((PCHAR)NextBlock + sizeof(IMAGE_BASE_RELOCATION));
-			VA = NewImageBase + NextBlock->VirtualAddress;
-			NextBlock = ProcessRelocationBlock(VA, SizeOfBlock, NextOffset, Diff);
-			if (!NextBlock)
-				return 0;
-		}
-		return 1;
-	}
-
-	PIMAGE_BASE_RELOCATION SCANHOOK::ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff)
-	{
-		PUCHAR FixupVA;
-		USHORT Offset;
-		LONG Temp;
-		ULONGLONG Value64;
-		while (SizeOfBlock--)
-		{
-			Offset = *NextOffset & (USHORT)0xfff;
-			FixupVA = (PUCHAR)(VA + Offset);
-			switch ((*NextOffset) >> 12)
-			{
-			case IMAGE_REL_BASED_HIGHLOW:
-			{
-				*(LONG UNALIGNED *)FixupVA += (ULONG)Diff;
-				break;
-			}
-			case IMAGE_REL_BASED_HIGH:
-			{
-				Temp = *(PUSHORT)FixupVA & 16;
-				Temp += (ULONG)Diff;
-				*(PUSHORT)FixupVA = (USHORT)(Temp >> 16);
-				break;
-			}
-			case IMAGE_REL_BASED_HIGHADJ:
-			{
-				if (Offset & LDRP_RELOCATION_FINAL)
-				{
-					++NextOffset;
-					--SizeOfBlock;
-					break;
-				}
-				Temp = *(PUSHORT)FixupVA & 16;
-				++NextOffset;
-				--SizeOfBlock;
-				Temp += (LONG)(*(PSHORT)NextOffset);
-				Temp += (ULONG)Diff;
-				Temp += 0x8000;
-				*(PUSHORT)FixupVA = (USHORT)(Temp >> 16);
-				break;
-			}
-			case IMAGE_REL_BASED_LOW:
-			{
-				Temp = *(PSHORT)FixupVA;
-				Temp += (ULONG)Diff;
-				*(PUSHORT)FixupVA = (USHORT)Temp;
-				break;
-			}
-			case IMAGE_REL_BASED_IA64_IMM64:
-			{
-				FixupVA = (PUCHAR)((ULONG_PTR)FixupVA & ~(15));
-				Value64 = (ULONGLONG)0;
-				EXT_IMM64(Value64,
-					(PULONG)FixupVA + EMARCH_ENC_I17_IMM7B_INST_WORD_X,
-					EMARCH_ENC_I17_IMM7B_SIZE_X,
-					EMARCH_ENC_I17_IMM7B_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM7B_VAL_POS_X);
-				EXT_IMM64(Value64,
-					(PULONG)FixupVA + EMARCH_ENC_I17_IMM9D_INST_WORD_X,
-					EMARCH_ENC_I17_IMM9D_SIZE_X,
-					EMARCH_ENC_I17_IMM9D_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM9D_VAL_POS_X);
-				EXT_IMM64(Value64,
-					(PULONG)FixupVA + EMARCH_ENC_I17_IMM5C_INST_WORD_X,
-					EMARCH_ENC_I17_IMM5C_SIZE_X,
-					EMARCH_ENC_I17_IMM5C_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM5C_VAL_POS_X);
-				EXT_IMM64(Value64,
-					(PULONG)FixupVA + EMARCH_ENC_I17_IC_INST_WORD_X,
-					EMARCH_ENC_I17_IC_SIZE_X,
-					EMARCH_ENC_I17_IC_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IC_VAL_POS_X);
-				EXT_IMM64(Value64,
-					(PULONG)FixupVA + EMARCH_ENC_I17_IMM41a_INST_WORD_X,
-					EMARCH_ENC_I17_IMM41a_SIZE_X,
-					EMARCH_ENC_I17_IMM41a_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41a_VAL_POS_X);
-				EXT_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM41b_INST_WORD_X),
-					EMARCH_ENC_I17_IMM41b_SIZE_X,
-					EMARCH_ENC_I17_IMM41b_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41b_VAL_POS_X);
-				EXT_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM41c_INST_WORD_X),
-					EMARCH_ENC_I17_IMM41c_SIZE_X,
-					EMARCH_ENC_I17_IMM41c_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41c_VAL_POS_X);
-				EXT_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_SIGN_INST_WORD_X),
-					EMARCH_ENC_I17_SIGN_SIZE_X,
-					EMARCH_ENC_I17_SIGN_INST_WORD_POS_X,
-					EMARCH_ENC_I17_SIGN_VAL_POS_X);
-				Value64 += Diff;
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM7B_INST_WORD_X),
-					EMARCH_ENC_I17_IMM7B_SIZE_X,
-					EMARCH_ENC_I17_IMM7B_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM7B_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM9D_INST_WORD_X),
-					EMARCH_ENC_I17_IMM9D_SIZE_X,
-					EMARCH_ENC_I17_IMM9D_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM9D_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM5C_INST_WORD_X),
-					EMARCH_ENC_I17_IMM5C_SIZE_X,
-					EMARCH_ENC_I17_IMM5C_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM5C_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IC_INST_WORD_X),
-					EMARCH_ENC_I17_IC_SIZE_X,
-					EMARCH_ENC_I17_IC_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IC_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM41a_INST_WORD_X),
-					EMARCH_ENC_I17_IMM41a_SIZE_X,
-					EMARCH_ENC_I17_IMM41a_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41a_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM41b_INST_WORD_X),
-					EMARCH_ENC_I17_IMM41b_SIZE_X,
-					EMARCH_ENC_I17_IMM41b_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41b_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_IMM41c_INST_WORD_X),
-					EMARCH_ENC_I17_IMM41c_SIZE_X,
-					EMARCH_ENC_I17_IMM41c_INST_WORD_POS_X,
-					EMARCH_ENC_I17_IMM41c_VAL_POS_X);
-				INS_IMM64(Value64,
-					((PULONG)FixupVA + EMARCH_ENC_I17_SIGN_INST_WORD_X),
-					EMARCH_ENC_I17_SIGN_SIZE_X,
-					EMARCH_ENC_I17_SIGN_INST_WORD_POS_X,
-					EMARCH_ENC_I17_SIGN_VAL_POS_X);
-				break;
-			}
-			case IMAGE_REL_BASED_DIR64:
-			{
-				*(ULONGLONG UNALIGNED *)FixupVA += Diff;
-				break;
-			}
-			case IMAGE_REL_BASED_MIPS_JMPADDR:
-			{
-				Temp = (*(PULONG)FixupVA & 0x3ffffff) & 2;
-				Temp += (ULONG)Diff;
-				*(PULONG)FixupVA = (*(PULONG)FixupVA & ~0x3ffffff) | ((Temp >> 2) & 0x3ffffff);
-				break;
-			}
-			case IMAGE_REL_BASED_ABSOLUTE:
-				break;
-			default:
-				return (PIMAGE_BASE_RELOCATION)NULL;
-			}
-			++NextOffset;
-		}
-		return (PIMAGE_BASE_RELOCATION)NextOffset;
-	}
-
-	bool SCANHOOK::IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva)
-	{
-		WORD SectionNum;
-		PIMAGE_SECTION_HEADER Section;
-		SectionNum = PeHead->FileHeader.NumberOfSections;
-		Section = IMAGE_FIRST_SECTION(PeHead);
-		for (int i = 0; i < SectionNum; ++i)
-		{
-			if ((Section->VirtualAddress <= Rva) && (Rva < (Section->SizeOfRawData + Section->VirtualAddress)))
-				return 0;
-			++Section;
-		}
-		return 1;
-	}
-
-	bool SCANHOOK::ParsePe(DWORD ImageBase, PPE_INFO Pe)
-	{
-		bool ret = 0;
-		PIMAGE_DOS_HEADER DosHead;
-		PIMAGE_OPTIONAL_HEADER OpitionHead;
-		if (ImageBase)
-		{
-			DosHead = (PIMAGE_DOS_HEADER)ImageBase;
-			if (DosHead->e_magic ==IMAGE_DOS_SIGNATURE)
-			{
-				Pe->PeHead = (PIMAGE_NT_HEADERS)(ImageBase + DosHead->e_lfanew);
-				if (Pe->PeHead->Signature == IMAGE_NT_SIGNATURE)
-				{
-					OpitionHead = &(Pe->PeHead->OptionalHeader);
-					Pe->ExportTableRva = OpitionHead->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
-					Pe->ExportSize = OpitionHead->DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
-					Pe->ImportTableRva = OpitionHead->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-					Pe->ImportSize = OpitionHead->DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
-					ret = 1;
-				}
-			}
-		}
-		return ret;
-	}
-
 	DWORD SCANHOOK::GetExportByOrdinal(DWORD ImageBase, WORD Ordinal)
 	{
 		DWORD ApiAddress = 0;
 		DWORD *Eat;
-		PE_INFO Pe;
+		LIBPE Pe;
+		PE_INFO PeInfo;
 		PIMAGE_EXPORT_DIRECTORY ExportTable;
-		ParsePe(ImageBase, &Pe);
-		if (Pe.ExportSize)
+		Pe.Parse(ImageBase, &PeInfo);
+		if (PeInfo.ExportSize)
 		{
-			ExportTable = (PIMAGE_EXPORT_DIRECTORY)(ImageBase + Pe.ExportTableRva);
+			ExportTable = (PIMAGE_EXPORT_DIRECTORY)(ImageBase + PeInfo.ExportTableRva);
 			Eat = (DWORD *)(ImageBase + ExportTable->AddressOfFunctions);
 			ApiAddress = ((Eat[Ordinal - ExportTable->Base] != 0) ? (ImageBase + Eat[Ordinal - ExportTable->Base]) : 0);
-			if ((ApiAddress >= (DWORD)ExportTable) && (ApiAddress < ((DWORD)ExportTable + Pe.ExportSize)))
+			if ((ApiAddress >= (DWORD)ExportTable) && (ApiAddress < ((DWORD)ExportTable + PeInfo.ExportSize)))
 			{
 				ApiAddress = FileNameRedirection((char *)ApiAddress);
 				m_IsFromIat = 1;
@@ -698,12 +386,13 @@ namespace libScanHook
 		DWORD ApiAddress = 0;
 		WORD Ordinal, *NameOrd;
 		DWORD *Ent, *Eat, HigthIndex, LowIndex = 0, MidIndex;
-		PE_INFO Pe;
+		LIBPE Pe;
+		PE_INFO PeInfo;
 		PIMAGE_EXPORT_DIRECTORY ExportTable;
-		ParsePe(ImageBase, &Pe);
-		if (Pe.ExportSize)
+		Pe.Parse(ImageBase, &PeInfo);
+		if (PeInfo.ExportSize)
 		{
-			ExportTable = (PIMAGE_EXPORT_DIRECTORY)(ImageBase + Pe.ExportTableRva);
+			ExportTable = (PIMAGE_EXPORT_DIRECTORY)(ImageBase + PeInfo.ExportTableRva);
 			Eat = (DWORD *)(ImageBase + ExportTable->AddressOfFunctions);
 			Ent = (DWORD *)(ImageBase + ExportTable->AddressOfNames);
 			NameOrd = (WORD *)(ImageBase + ExportTable->AddressOfNameOrdinals);
@@ -734,7 +423,7 @@ namespace libScanHook
 				if (LowIndex > HigthIndex)
 					return 0;
 				ApiAddress = (ImageBase + Eat[Ordinal]);
-				if (ApiAddress >= (DWORD)ExportTable && (ApiAddress < ((DWORD)ExportTable + Pe.ExportSize)))
+				if (ApiAddress >= (DWORD)ExportTable && (ApiAddress < ((DWORD)ExportTable + PeInfo.ExportSize)))
 				{
 					ApiAddress = FileNameRedirection((char *)ApiAddress);
 					m_IsFromIat = 1;

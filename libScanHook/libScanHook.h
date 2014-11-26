@@ -4,7 +4,11 @@
 #include<vector>
 #include "ntdll.h"
 #include "libdasm.h"
+#include "libPe.h"
+#include "PeLoader.h"
 using std::vector;
+using namespace libpe;
+using namespace peloader;
 
 typedef enum _HOOK_TYPE
 {
@@ -23,7 +27,7 @@ typedef struct _PROCESS_HOOK_INFO
 	WCHAR HookLocation[260];            //钩子所在的模块
 } PROCESS_HOOK_INFO, *PPROCESS_HOOK_INFO;
 
-namespace libScanHook
+namespace libscanhook
 {
 	class SCANHOOK
 	{
@@ -31,7 +35,6 @@ namespace libScanHook
 		SCANHOOK();
 		~SCANHOOK();
 		bool InitScan(DWORD Pid);
-		//void CloseScan();
 		bool GetProcessHookInfo(PPROCESS_HOOK_INFO Entry);
 
 	private:
@@ -44,15 +47,6 @@ namespace libScanHook
 			void *MemoryImage;
 			void *DiskImage;
 		} MODULE_INFO;
-
-		typedef struct _PE_INFO
-		{
-			PIMAGE_NT_HEADERS PeHead;
-			DWORD ExportTableRva;
-			DWORD ExportSize;
-			DWORD ImportTableRva;
-			DWORD ImportSize;
-		} PE_INFO, *PPE_INFO;
 
 	private:
 		bool ScanInlineHook(char *ApiName, DWORD Address);
@@ -75,12 +69,6 @@ namespace libScanHook
 		bool QueryModuleInfo();
 		bool ReadMemoryImage();
 		void FreeMemoryImage();
-		bool PeLoader(WCHAR *FilePath, DWORD DllBase, void *Buffer, DWORD BufferSize);
-		bool FixBaseRelocTable(DWORD NewImageBase, DWORD ExistImageBase);
-		PIMAGE_BASE_RELOCATION ProcessRelocationBlock(ULONG_PTR VA, ULONG SizeOfBlock, PUSHORT NextOffset, LONGLONG Diff);
-		bool IsGlobalVar(PIMAGE_NT_HEADERS PeHead, DWORD Rva);
-		bool ParsePe(DWORD ImageBase, PPE_INFO PeInfo);
-		UINT AlignSize(UINT Size, UINT Align);
 		DWORD GetExportByOrdinal(DWORD ImageBase, WORD Ordinal);
 		DWORD GetExportByName(DWORD ImageBase, char *ProcName);
 		DWORD FileNameRedirection(char *RedirectionName);

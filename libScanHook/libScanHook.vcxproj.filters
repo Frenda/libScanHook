@@ -33,6 +33,12 @@
     <ClInclude Include="ntdll.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="libPe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PeLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +51,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="libPe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PeLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

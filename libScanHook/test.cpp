@@ -6,7 +6,7 @@
 #include<iomanip>
 #include "libScanHook.h"
 using namespace std;
-using namespace libScanHook;
+using namespace libscanhook;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -45,7 +45,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			cout << endl;
 		}
 	}
-	//Scan.CloseScan();
 	system("pause");
 	return 0;
 }
