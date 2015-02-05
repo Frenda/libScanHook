@@ -73,9 +73,10 @@ namespace libscanhook
 		INSTRUCTION Instr, Instr2;
 		if (GetModuleInfomation(Address, iter))
 		{
+			//函数的地址 - 函数所在的DLL的基址 + DLL重载后的地址 = 函数在重载后的DLL中的地址
 			Dest = Address - iter->DllBase + (DWORD)iter->MemoryImage;
 			Src = Address - iter->DllBase + (DWORD)iter->DiskImage;
-			for (Index = 0; Index < 10; ++Index)
+			for (Index = 0; Index < 15; ++Index)
 			{
 				if ((*(BYTE *)(Dest + Index)) != (*(BYTE *)(Src + Index)))
 				{
@@ -84,9 +85,9 @@ namespace libscanhook
 					{
 					case INSTRUCTION_TYPE_JMP:
 					{
-						if (Instr.length == 7)
+						if (Instr.opcode == 0xFF && Instr.modrm == 0x25)
 							HookAddress = Instr.op1.displacement;
-						if (Instr.length == 5)
+						if (Instr.opcode == 0xEB || Instr.opcode == 0xE9)
 							HookAddress = Dest + Index + Instr.op1.displacement;
 						IsHook = 1;
 						break;
@@ -99,6 +100,15 @@ namespace libscanhook
 							HookAddress = Instr.op1.displacement;
 							IsHook = 1;
 						}
+						break;
+					}
+					case INSTRUCTION_TYPE_CALL:
+					{
+						if (Instr.opcode == 0xFF && Instr.modrm == 0x15)
+							HookAddress = Instr.op1.displacement;
+						if (Instr.opcode == 0xEB || Instr.opcode == 0x9A)
+							HookAddress = Dest + Index + Instr.op1.displacement;
+						IsHook = 1;
 						break;
 					}
 					default:
@@ -256,17 +266,13 @@ namespace libscanhook
 	{
 		HANDLE hToken;
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken))
-		{
 			return 0;
-		}
 		TOKEN_PRIVILEGES tkp;
 		tkp.PrivilegeCount = 1;
 		LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &tkp.Privileges[0].Luid);
 		tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 		if (!AdjustTokenPrivileges(hToken, FALSE, &tkp, sizeof(tkp), NULL, NULL))
-		{
 			return 0;
-		}
 		CloseHandle(hToken);
 		return 1;
 	}
@@ -291,47 +297,29 @@ namespace libscanhook
 	bool SCANHOOK::QueryModuleInfo()
 	{
 		bool ret = 0;
-		DWORD Peb;
-		MODULE_INFO Info;
 		PELOADER Ldr;
-		NT_PROCESS_BASIC_INFORMATION BaseInfo;
-		PNT_PEB_LDR_DATA LdrData;
-		NT_LDR_DATA_TABLE_ENTRY Buffer;
-		PNT_LDR_DATA_TABLE_ENTRY LdrTable, EndLdrTable;
-		if (!NtQueryInformationProcess(m_hProcess, ProcessBasicInformation, &BaseInfo, sizeof(NT_PROCESS_BASIC_INFORMATION), 0))
+		HANDLE hSnap;
+		MODULEENTRY32 me32;
+		MODULE_INFO Info;
+		hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetProcessId(m_hProcess));
+		if (hSnap != INVALID_HANDLE_VALUE)
 		{
-			Peb = BaseInfo.PebBaseAddress;
-			__try
+			me32.dwSize = sizeof(MODULEENTRY32);
+			if (Module32First(hSnap, &me32))
 			{
-				if (ReadProcessMemory(m_hProcess, (void *)(Peb + 0xc), &LdrData, 4, 0))
+				do
 				{
-					if (ReadProcessMemory(m_hProcess, &(LdrData->InLoadOrderModuleList), &LdrTable, 4, 0))
-					{
-						if (ReadProcessMemory(m_hProcess, LdrTable, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0))
-						{
-							EndLdrTable = LdrTable;
-							do
-							{
-								memset(&Info, 0, sizeof(MODULE_INFO));
-								Info.DllBase = (DWORD)Buffer.DllBase;
-								Info.SizeOfImage = Buffer.SizeOfImage;
-								ReadProcessMemory(m_hProcess, Buffer.FullDllName.Buffer, Info.FullName, Buffer.FullDllName.Length, 0);
-								ReadProcessMemory(m_hProcess, Buffer.BaseDllName.Buffer, Info.BaseName, Buffer.BaseDllName.Length, 0);
-								Info.DiskImage = new BYTE[Buffer.SizeOfImage];
-								Ldr.Loader(Info.FullName, (DWORD)Buffer.DllBase, Info.DiskImage, Buffer.SizeOfImage);
-								ModuleInfo.push_back(Info);
-								ReadProcessMemory(m_hProcess, Buffer.InLoadOrderLinks.Flink, &Buffer, sizeof(NT_LDR_DATA_TABLE_ENTRY), 0);
-								LdrTable = (PNT_LDR_DATA_TABLE_ENTRY)(Buffer.InLoadOrderLinks.Flink);
-							} while (LdrTable != EndLdrTable);
-							ret = 1;
-						}
-					}
-				}
+					Info.DllBase = (DWORD)me32.modBaseAddr;
+					Info.SizeOfImage = me32.modBaseSize;
+					wcscpy_s(Info.BaseName, 64, me32.szModule);
+					wcscpy_s(Info.FullName, 260, me32.szExePath);
+					Info.DiskImage = new BYTE[Info.SizeOfImage];
+					Ldr.Loader(Info.FullName, (DWORD)Info.DllBase, Info.DiskImage, Info.SizeOfImage);
+					ModuleInfo.push_back(Info);
+				} while (Module32Next(hSnap, &me32));
+				ret = 1;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				ret = 0;
-			}
+			CloseHandle(hSnap);
 		}
 		return ret;
 	}

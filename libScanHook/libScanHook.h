@@ -1,8 +1,10 @@
 #pragma once
 
 #include<Windows.h>
+#include<TlHelp32.h>
 #include<vector>
 #include "ntdll.h"
+#include "ldasm.h"
 #include "libdasm.h"
 #include "libPe.h"
 #include "PeLoader.h"

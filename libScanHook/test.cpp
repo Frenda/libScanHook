@@ -8,7 +8,7 @@
 using namespace std;
 using namespace libscanhook;
 
-int _tmain(int argc, _TCHAR* argv[])
+void ScanHook()
 {
 	SCANHOOK Scan;
 	PROCESS_HOOK_INFO HookInfo;
@@ -45,6 +45,11 @@ int _tmain(int argc, _TCHAR* argv[])
 			cout << endl;
 		}
 	}
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	ScanHook();
 	system("pause");
 	return 0;
 }
