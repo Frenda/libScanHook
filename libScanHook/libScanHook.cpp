@@ -88,7 +88,7 @@ namespace libscanhook
 						if (Instr.opcode == 0xFF && Instr.modrm == 0x25)
 							HookAddress = Instr.op1.displacement;
 						if (Instr.opcode == 0xEB || Instr.opcode == 0xE9)
-							HookAddress = Dest + Index + Instr.op1.displacement;
+							HookAddress = Address + Instr.op1.immediate + InstrLen;
 						IsHook = 1;
 						break;
 					}
@@ -102,12 +102,22 @@ namespace libscanhook
 						}
 						break;
 					}
+					case INSTRUCTION_TYPE_MOV:
+					{
+						InstrLen = get_instruction(&Instr2, (BYTE *)(Dest + Index + InstrLen), MODE_32);
+						if (Instr2.type == INSTRUCTION_TYPE_JMP)
+						{
+							HookAddress = Address + Instr.op1.displacement;
+							IsHook = 1;
+						}
+						break;
+					}
 					case INSTRUCTION_TYPE_CALL:
 					{
 						if (Instr.opcode == 0xFF && Instr.modrm == 0x15)
 							HookAddress = Instr.op1.displacement;
 						if (Instr.opcode == 0xEB || Instr.opcode == 0x9A)
-							HookAddress = Dest + Index + Instr.op1.displacement;
+							HookAddress = Address + Instr.op1.immediate + InstrLen;
 						IsHook = 1;
 						break;
 					}
