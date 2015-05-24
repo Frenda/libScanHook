@@ -1,16 +1,18 @@
 #pragma once
 
 #include<Windows.h>
+#include<VersionHelpers.h>
 #include<TlHelp32.h>
 #include<vector>
-#include "ntdll.h"
 #include "ldasm.h"
 #include "libdasm.h"
 #include "libPe.h"
 #include "PeLoader.h"
+#include "apisetschema.h"
 using std::vector;
 using namespace libpe;
 using namespace peloader;
+using namespace apisetschema;
 
 typedef enum _HOOK_TYPE
 {
@@ -60,21 +62,20 @@ namespace libscanhook
 	private:
 		bool m_IsFromIat, m_IsFromEat;
 		HANDLE m_hProcess;
-		DWORD m_MajorVersion, m_MinorVersion;
-		DWORD *m_ApiSetMapHead;
 		vector<MODULE_INFO> ModuleInfo;
 		vector<MODULE_INFO>::iterator ModuleInfoiter;
 		vector<PROCESS_HOOK_INFO> HookInfo;
 		vector<PROCESS_HOOK_INFO>::iterator HookInfoiter;
+		ApiSet Api;
+
+	private:
 		bool ElevatedPriv();
-		bool QuerySystemInfo();
 		bool QueryModuleInfo();
 		bool ReadMemoryImage();
 		void FreeMemoryImage();
 		DWORD GetExportByOrdinal(DWORD ImageBase, WORD Ordinal);
 		DWORD GetExportByName(DWORD ImageBase, char *ProcName);
 		DWORD FileNameRedirection(char *RedirectionName);
-		bool ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size);
 		DWORD MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName);
 		bool GetModuleInfomation(WCHAR *DllName, vector<MODULE_INFO>::iterator &iter);
 		bool GetModuleInfomation(DWORD Address, vector<MODULE_INFO>::iterator &iter);

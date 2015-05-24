@@ -23,27 +23,24 @@ namespace libscanhook
 	bool SCANHOOK::InitScan(DWORD Pid)
 	{
 		bool ret = 0;
-		if (QuerySystemInfo())
+		m_hProcess = OpenProcess(PROCESS_ALL_ACCESS, 0, Pid);
+		if (m_hProcess)
 		{
-			m_hProcess = OpenProcess(PROCESS_ALL_ACCESS, 0, Pid);
-			if (m_hProcess)
+			if (QueryModuleInfo())
 			{
-				if (QueryModuleInfo())
+				for (ModuleInfoiter = ModuleInfo.begin(); ModuleInfoiter != ModuleInfo.end(); ++ModuleInfoiter)
 				{
-					for (ModuleInfoiter = ModuleInfo.begin(); ModuleInfoiter != ModuleInfo.end(); ++ModuleInfoiter)
+					if (ReadMemoryImage())
 					{
-						if (ReadMemoryImage())
-						{
-							ScanEatHook();
-							ScanIatHook();
-						}
-						FreeMemoryImage();
+						ScanEatHook();
+						ScanIatHook();
 					}
-					ret = 1;
-					HookInfoiter = HookInfo.begin();
+					FreeMemoryImage();
 				}
-				CloseHandle(m_hProcess);
+				ret = 1;
+				HookInfoiter = HookInfo.begin();
 			}
+			CloseHandle(m_hProcess);
 		}
 		return ret;
 	}
@@ -287,23 +284,6 @@ namespace libscanhook
 		return 1;
 	}
 
-	bool SCANHOOK::QuerySystemInfo()
-	{
-		bool ret = 0;
-		PNT_PEB Peb;
-		NT_PROCESS_BASIC_INFORMATION BaseInfo;
-		if (!NtQueryInformationProcess(GetCurrentProcess(), ProcessBasicInformation, &BaseInfo, sizeof(NT_PROCESS_BASIC_INFORMATION), 0))
-		{
-			Peb = (PNT_PEB)(BaseInfo.PebBaseAddress);
-			m_MajorVersion = Peb->OSMajorVersion;
-			m_MinorVersion = Peb->OSMinorVersion;
-			if (m_MajorVersion >= 6 && m_MinorVersion >= 1)
-				m_ApiSetMapHead = (DWORD *)(Peb->ApiSetMap);
-			ret = 1;
-		}
-		return ret;
-	}
-
 	bool SCANHOOK::QueryModuleInfo()
 	{
 		bool ret = 0;
@@ -452,7 +432,8 @@ namespace libscanhook
 			if (!_wcsnicmp(DllName, L"api-", 4))
 			{
 				m_IsFromEat = 1;
-				ResolveApiSet(DllName, DllName, 128);
+				//ResolveApiSet(DllName, DllName, 128);
+				Api.GetRealDll(DllName, ModuleInfoiter->BaseName, DllName, 128, m_IsFromEat);
 				m_IsFromEat = 0;
 				goto get_api_address;
 			}
@@ -479,96 +460,6 @@ namespace libscanhook
 		return ApiAddress;
 	}
 
-	bool SCANHOOK::ResolveApiSet(WCHAR *ApiSetName, WCHAR *HostName, DWORD Size)
-	{
-		bool ret = 0;
-		WCHAR *NameBuffer, *ptr;
-		WCHAR LibName[64];
-		DWORD LibNameSize, HostNameSize;
-		DWORD *Version;;
-		PNT_API_SET_NAMESPACE_ARRAY_V2 SetMapHead_v2;
-		PNT_API_SET_VALUE_ARRAY_V2 SetMapHost_v2;
-		PNT_API_SET_NAMESPACE_ARRAY_V4 SetMapHead_v4;
-		PNT_API_SET_VALUE_ARRAY_V4 SetMapHost_v4;
-		Version = m_ApiSetMapHead;
-		ptr = wcschr(ApiSetName, L'.');
-		if (ptr)
-			*ptr = 0;
-		if (Version)
-		{
-			switch (*Version)
-			{
-			case 2:
-			{
-					  SetMapHead_v2 = (PNT_API_SET_NAMESPACE_ARRAY_V2)Version;
-					  for (DWORD i = 0; i < SetMapHead_v2->Count; i++)
-					  {
-						  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].NameOffset);
-						  LibNameSize = SetMapHead_v2->Entry[i].NameLength;
-						  wcsncpy_s(LibName, 64, NameBuffer, LibNameSize / sizeof(WCHAR));
-						  if (!_wcsicmp((WCHAR *)(ApiSetName + 4), LibName))
-						  {
-							  SetMapHost_v2 = (PNT_API_SET_VALUE_ARRAY_V2)((DWORD)SetMapHead_v2 + SetMapHead_v2->Entry[i].DataOffset);
-							  if (SetMapHost_v2->Count == 1)
-							  {
-								  HostNameSize = SetMapHost_v2->Entry[0].ValueLength;
-								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[0].ValueOffset);
-							  }
-							  else
-							  {
-								  HostNameSize = SetMapHost_v2->Entry[0].ValueLength;
-								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[0].ValueOffset);
-								  if (!_wcsnicmp(ModuleInfoiter->BaseName, NameBuffer, HostNameSize / sizeof(WCHAR)) || m_IsFromEat)
-								  {
-									  HostNameSize = SetMapHost_v2->Entry[1].ValueLength;
-									  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v2 + SetMapHost_v2->Entry[1].ValueOffset);
-								  }								  
-							  }
-							  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
-							  ret = 1;
-							  break;
-						  }
-					  }
-			}
-			case 4:
-			{
-					  SetMapHead_v4 = (PNT_API_SET_NAMESPACE_ARRAY_V4)Version;
-					  for (DWORD i = 0; i < SetMapHead_v4->Count; i++)
-					  {
-						  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHead_v4->Entry[i].NameOffset);
-						  LibNameSize = SetMapHead_v4->Entry[i].NameLength;
-						  wcsncpy_s(LibName, 64, NameBuffer, LibNameSize / sizeof(WCHAR));
-						  if (!_wcsicmp((WCHAR *)(ApiSetName + 4), LibName))
-						  {
-							  SetMapHost_v4 = (PNT_API_SET_VALUE_ARRAY_V4)((DWORD)SetMapHead_v4 + SetMapHead_v4->Entry[i].DataOffset);
-							  if (SetMapHost_v4->Count == 1)
-							  {
-								  HostNameSize = SetMapHost_v4->Entry[0].ValueLength;
-								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHost_v4->Entry[0].ValueOffset);
-							  }
-							  else
-							  {
-								  HostNameSize = SetMapHost_v4->Entry[0].ValueLength;
-								  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHost_v4->Entry[0].ValueOffset);
-								  if (!_wcsnicmp(ModuleInfoiter->BaseName, NameBuffer, HostNameSize / sizeof(WCHAR)) || m_IsFromEat)
-								  {
-									  HostNameSize = SetMapHost_v4->Entry[1].ValueLength;
-									  NameBuffer = (WCHAR *)((DWORD)SetMapHead_v4 + SetMapHost_v4->Entry[1].ValueOffset);
-								  }								  
-							  }
-							  wcsncpy_s(HostName, Size, NameBuffer, HostNameSize / sizeof(WCHAR));
-							  ret = 1;
-							  break;
-						  }
-					  }
-			}
-			default:
-				break;
-			}
-		}
-		return ret;
-	}
-
 	DWORD SCANHOOK::MyGetProcAddress(char *DllName, char *ApiName, bool *IsApiSet, WCHAR *RealDllName)
 	{
 		DWORD ApiAddress = 0;
@@ -587,9 +478,9 @@ namespace libscanhook
 			}
 			else
 			{
-				if (!_wcsnicmp(NameBuffer, L"api-", 4) && (m_MajorVersion >= 6 && m_MinorVersion >= 1))
+				if (!_wcsnicmp(NameBuffer, L"api-", 4) && IsWindows7OrGreater())
 				{
-					if (ResolveApiSet(NameBuffer, HostName, 64))
+					if (Api.GetRealDll(NameBuffer, ModuleInfoiter->BaseName, HostName, 64, 0))
 					{
 						*IsApiSet = 1;
 						wcscpy_s(RealDllName, 64, HostName);
