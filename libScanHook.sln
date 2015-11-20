@@ -8,13 +8,31 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Debug-StaticLib|Win32 = Debug-StaticLib|Win32
+		Debug-StaticLib|x64 = Debug-StaticLib|x64
 		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+		Release-StaticLib|Win32 = Release-StaticLib|Win32
+		Release-StaticLib|x64 = Release-StaticLib|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug|Win32.ActiveCfg = Debug|Win32
 		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug|Win32.Build.0 = Debug|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug|x64.ActiveCfg = Debug|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug|x64.Build.0 = Debug|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug-StaticLib|Win32.ActiveCfg = Debug-StaticLib|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug-StaticLib|Win32.Build.0 = Debug-StaticLib|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug-StaticLib|x64.ActiveCfg = Debug-StaticLib|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Debug-StaticLib|x64.Build.0 = Debug-StaticLib|x64
 		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release|Win32.ActiveCfg = Release|Win32
 		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release|Win32.Build.0 = Release|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release|x64.ActiveCfg = Release|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release|x64.Build.0 = Release|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release-StaticLib|Win32.ActiveCfg = Release-StaticLib|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release-StaticLib|Win32.Build.0 = Release-StaticLib|Win32
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release-StaticLib|x64.ActiveCfg = Release-StaticLib|x64
+		{87C2005B-6523-4E4A-B3CF-F790880D12CD}.Release-StaticLib|x64.Build.0 = Release-StaticLib|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

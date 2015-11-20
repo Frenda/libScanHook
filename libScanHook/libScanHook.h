@@ -4,7 +4,6 @@
 #include<VersionHelpers.h>
 #include<TlHelp32.h>
 #include<vector>
-#include "ldasm.h"
 #include "libdasm.h"
 #include "libPe.h"
 #include "PeLoader.h"
